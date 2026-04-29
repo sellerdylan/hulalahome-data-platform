@@ -1,0 +1,20 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "cd server && pip install -r requirements.txt",
+    "startCommand": "cd server && python main.py"
+  },
+  "deploy": {
+    "region": "us-east",
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "env": {
+    "PORT": {
+      "description": "Railway auto-assigns this",
+      "required": false
+    }
+  }
+}

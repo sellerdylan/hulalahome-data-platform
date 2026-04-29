@@ -1,0 +1,6 @@
+export { DashboardPage } from './dashboard'
+export { SpuDetailPage } from './spu'
+export { DailyAnalysisPage } from './analysis'
+export { SettingsPage } from './settings'
+export { ImportPage } from './import'
+export { TargetsPage } from './targets'
