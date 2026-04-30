@@ -108,7 +108,7 @@ async def debug_db_check():
         cursor = conn.cursor()
         
         # 检查各表记录数
-        tables = ['shops', 'sku_base_info', 'orders', 'ad_data', 'warehouse_freight', 'sku_refund_rates']
+        tables = ['shops', 'sku_base_info', 'orders', 'ad_data', 'warehouse_freight']
         counts = {}
         for table in tables:
             try:
