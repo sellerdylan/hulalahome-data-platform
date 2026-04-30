@@ -19,6 +19,7 @@ import {
 import * as XLSX from 'xlsx'
 import { useSystemStore } from '@/store'
 import type { ShopRate, SkuFreight, SkuRefundRate, SkuBaseInfo } from '@/types'
+import { importShopsFile, importSkuBaseFile, importWarehouseFreightFile } from '@/services/backendApi'
 
 // 生成唯一ID
 const generateId = () => Math.random().toString(36).substring(2, 11)
@@ -635,7 +636,7 @@ export function SettingsPage() {
 // 导入按钮组件
 // ============================================
 
-// 店铺费率导入按钮（增量导入 + 去重合并）
+// 店铺费率导入按钮（增量导入 + 去重合并 + 同步到后端）
 function ImportShopRatesButton({ onImport }: { onImport: (data: ShopRate[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -661,6 +662,15 @@ function ImportShopRatesButton({ onImport }: { onImport: (data: ShopRate[]) => v
       const merged = Array.from(existingMap.values())
       
       onImport(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importShopsFile(file)
+        console.log('【店铺费率】已同步到后端')
+      } catch (apiError) {
+        console.warn('【店铺费率】后端同步失败:', apiError)
+      }
+      
       alert(`成功导入 ${imported.length} 条店铺费率数据（共 ${merged.length} 条）`)
     } catch (err) {
       alert('导入失败：' + (err as Error).message)
@@ -686,7 +696,7 @@ function ImportShopRatesButton({ onImport }: { onImport: (data: ShopRate[]) => v
   )
 }
 
-// SKU运费导入按钮（增量导入 + 去重合并）
+// SKU运费导入按钮（增量导入 + 去重合并 + 同步到后端）
 function ImportSkuFreightButton({ onImport }: { onImport: (data: SkuFreight[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -712,6 +722,15 @@ function ImportSkuFreightButton({ onImport }: { onImport: (data: SkuFreight[]) =
       const merged = Array.from(existingMap.values())
       
       onImport(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importWarehouseFreightFile(file)
+        console.log('【SKU运费】已同步到后端')
+      } catch (apiError) {
+        console.warn('【SKU运费】后端同步失败:', apiError)
+      }
+      
       alert(`成功导入 ${imported.length} 条SKU运费数据（共 ${merged.length} 条）`)
     } catch (err) {
       alert('导入失败：' + (err as Error).message)
@@ -737,7 +756,8 @@ function ImportSkuFreightButton({ onImport }: { onImport: (data: SkuFreight[]) =
   )
 }
 
-// SKU退款率导入按钮（增量导入 + 去重合并）
+// SKU退款率导入按钮（增量导入 + 去重合并 + 同步到后端）
+// 注意：SKU退款率存储在 sku_base_info 表的 refund_rate 字段中
 function ImportSkuRefundRateButton({ onImport }: { onImport: (data: SkuRefundRate[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -762,6 +782,16 @@ function ImportSkuRefundRateButton({ onImport }: { onImport: (data: SkuRefundRat
       const merged = Array.from(existingMap.values())
       
       onImport(merged)
+      
+      // SKU退款率需要通过 SKU 基础信息导入接口同步到后端
+      // 因为后端 sku_base_info 表的 refund_rate 字段存储了退款率
+      try {
+        await importSkuBaseFile(file)
+        console.log('【SKU退款率】已同步到后端（通过SKU基础信息接口）')
+      } catch (apiError) {
+        console.warn('【SKU退款率】后端同步失败:', apiError)
+      }
+      
       alert(`成功导入 ${imported.length} 条SKU退款率数据（共 ${merged.length} 条）`)
     } catch (err) {
       alert('导入失败：' + (err as Error).message)
@@ -787,7 +817,7 @@ function ImportSkuRefundRateButton({ onImport }: { onImport: (data: SkuRefundRat
   )
 }
 
-// SKU基础信息导入按钮（增量导入 + 去重合并）
+// SKU基础信息导入按钮（增量导入 + 去重合并 + 同步到后端）
 function ImportSkuBaseInfoButton({ onImport }: { onImport: (data: SkuBaseInfo[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -820,6 +850,15 @@ function ImportSkuBaseInfoButton({ onImport }: { onImport: (data: SkuBaseInfo[])
       const merged = Array.from(existingMap.values())
       
       onImport(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importSkuBaseFile(file)
+        console.log('【SKU基础信息】已同步到后端')
+      } catch (apiError) {
+        console.warn('【SKU基础信息】后端同步失败:', apiError)
+      }
+      
       alert(`成功导入 ${imported.length} 条SKU基础信息（共 ${merged.length} 条，去重后）`)
     } catch (err) {
       alert('导入失败：' + (err as Error).message)

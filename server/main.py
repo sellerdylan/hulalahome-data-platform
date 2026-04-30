@@ -692,6 +692,51 @@ async def import_shops(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=result['error'])
 
 
+@app.post("/api/import/department-targets")
+async def import_department_targets(file: UploadFile = File(...)):
+    """导入整体目标"""
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(status_code=400, detail="只支持 Excel 或 CSV 文件")
+
+    content = await file.read()
+    result = importer.import_department_targets(content, file.filename)
+
+    if result['success']:
+        return {"success": True, "message": f"成功导入 {result['count']} 条整体目标"}
+    else:
+        raise HTTPException(status_code=400, detail=result['error'])
+
+
+@app.post("/api/import/operator-group-targets")
+async def import_operator_group_targets(file: UploadFile = File(...)):
+    """导入运营组目标"""
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(status_code=400, detail="只支持 Excel 或 CSV 文件")
+
+    content = await file.read()
+    result = importer.import_operator_group_targets(content, file.filename)
+
+    if result['success']:
+        return {"success": True, "message": f"成功导入 {result['count']} 条运营组目标"}
+    else:
+        raise HTTPException(status_code=400, detail=result['error'])
+
+
+@app.post("/api/import/operator-targets")
+async def import_operator_targets(file: UploadFile = File(...)):
+    """导入运营目标"""
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(status_code=400, detail="只支持 Excel 或 CSV 文件")
+
+    content = await file.read()
+    result = importer.import_operator_targets(content, file.filename)
+
+    if result['success']:
+        return {"success": True, "message": f"成功导入 {result['count']} 条运营目标"}
+    else:
+        raise HTTPException(status_code=400, detail=result['error'])
+
+
 # ==================== 批量数据导入（管理员用） ====================
 
 @app.post("/api/import/all")

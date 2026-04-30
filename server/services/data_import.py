@@ -227,3 +227,112 @@ class DataImporter:
                 return {'success': True, 'count': count}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    def import_department_targets(self, content: Union[bytes, str], filename: str = "") -> Dict:
+        """导入整体目标"""
+        try:
+            df = self._read_file(content, filename)
+
+            required_cols = ['月份']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                count = 0
+
+                for _, row in df.iterrows():
+                    try:
+                        # 整体目标按 shop 维度存储（如果没指定 shop，默认用空字符串表示全店）
+                        shop = str(row.get('店铺', ''))
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO department_targets
+                            (shop, target_sales, target_gross_profit, target_margin_rate, month)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            shop,
+                            float(row.get('销售额目标', 0)),
+                            float(row.get('毛利目标', 0)),
+                            float(row.get('毛利率目标', 0.2)),
+                            str(row['月份']),
+                        ))
+                        count += 1
+                    except Exception as e:
+                        print(f"导入整体目标失败: {e}")
+                        continue
+
+                return {'success': True, 'count': count}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def import_operator_group_targets(self, content: Union[bytes, str], filename: str = "") -> Dict:
+        """导入运营组目标"""
+        try:
+            df = self._read_file(content, filename)
+
+            required_cols = ['月份', '运营组']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                count = 0
+
+                for _, row in df.iterrows():
+                    try:
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO operator_group_targets
+                            (operator_group, target_sales, target_gross_profit, month)
+                            VALUES (?, ?, ?, ?)
+                        """, (
+                            str(row['运营组']),
+                            float(row.get('销售额目标', 0)),
+                            float(row.get('毛利目标', 0)),
+                            str(row['月份']),
+                        ))
+                        count += 1
+                    except Exception as e:
+                        print(f"导入运营组目标失败: {e}")
+                        continue
+
+                return {'success': True, 'count': count}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def import_operator_targets(self, content: Union[bytes, str], filename: str = "") -> Dict:
+        """导入运营目标"""
+        try:
+            df = self._read_file(content, filename)
+
+            required_cols = ['月份', '运营']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                count = 0
+
+                for _, row in df.iterrows():
+                    try:
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO operator_targets
+                            (operator, operator_group, target_sales, target_gross_profit, month)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            str(row['运营']),
+                            str(row.get('运营组', '')),
+                            float(row.get('销售额目标', 0)),
+                            float(row.get('毛利目标', 0)),
+                            str(row['月份']),
+                        ))
+                        count += 1
+                    except Exception as e:
+                        print(f"导入运营目标失败: {e}")
+                        continue
+
+                return {'success': True, 'count': count}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}

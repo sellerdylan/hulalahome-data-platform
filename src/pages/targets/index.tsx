@@ -20,6 +20,14 @@ import { useTargetStore, useSystemStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
 import dayjs from 'dayjs'
 import type { DepartmentTarget, OperatorGroupTarget, OperatorTarget } from '@/types'
+import { 
+  importDepartmentTargetsFile, 
+  importOperatorGroupTargetsFile, 
+  importOperatorTargetsFile,
+  saveDepartmentTargetToBackend,
+  saveOperatorGroupTargetToBackend,
+  saveOperatorTargetToBackend,
+} from '@/services/backendApi'
 
 const generateId = () => Math.random().toString(36).substring(2, 11)
 
@@ -77,7 +85,17 @@ function DepartmentTargetsTab() {
       // 增量导入：同月份去重，新的覆盖旧的
       const existingMap = new Map(departmentTargets.map(t => [t.month, t]))
       for (const t of valid) existingMap.set(t.month, t)
-      setDepartmentTargets([...existingMap.values()].sort((a, b) => a.month.localeCompare(b.month)))
+      const merged = [...existingMap.values()].sort((a, b) => a.month.localeCompare(b.month))
+      setDepartmentTargets(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importDepartmentTargetsFile(file)
+        console.log('【整体目标】已同步到后端')
+      } catch (apiError) {
+        console.warn('【整体目标】后端同步失败:', apiError)
+      }
+      
       setMessage({ type: 'success', text: `成功导入 ${valid.length} 条整体目标` })
     } catch {
       setMessage({ type: 'error', text: '文件解析失败，请检查格式' })
@@ -219,9 +237,19 @@ function OperatorGroupTargetsTab() {
       }
       const existingMap = new Map(operatorGroupTargets.map(t => [`${t.month}_${t.operatorGroup}`, t]))
       for (const t of valid) existingMap.set(`${t.month}_${t.operatorGroup}`, t)
-      setOperatorGroupTargets([...existingMap.values()].sort((a, b) =>
+      const merged = [...existingMap.values()].sort((a, b) =>
         a.month.localeCompare(b.month) || a.operatorGroup.localeCompare(b.operatorGroup)
-      ))
+      )
+      setOperatorGroupTargets(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importOperatorGroupTargetsFile(file)
+        console.log('【运营组目标】已同步到后端')
+      } catch (apiError) {
+        console.warn('【运营组目标】后端同步失败:', apiError)
+      }
+      
       setMessage({ type: 'success', text: `成功导入 ${valid.length} 条运营组目标` })
     } catch {
       setMessage({ type: 'error', text: '文件解析失败，请检查格式' })
@@ -372,9 +400,19 @@ function OperatorTargetsTab() {
       }
       const existingMap = new Map(operatorTargets.map(t => [`${t.month}_${t.operator}`, t]))
       for (const t of valid) existingMap.set(`${t.month}_${t.operator}`, t)
-      setOperatorTargets([...existingMap.values()].sort((a, b) =>
+      const merged = [...existingMap.values()].sort((a, b) =>
         a.month.localeCompare(b.month) || a.operator.localeCompare(b.operator)
-      ))
+      )
+      setOperatorTargets(merged)
+      
+      // 同步到后端（实现数据共享）
+      try {
+        await importOperatorTargetsFile(file)
+        console.log('【运营目标】已同步到后端')
+      } catch (apiError) {
+        console.warn('【运营目标】后端同步失败:', apiError)
+      }
+      
       setMessage({ type: 'success', text: `成功导入 ${valid.length} 条运营目标` })
     } catch {
       setMessage({ type: 'error', text: '文件解析失败，请检查格式' })

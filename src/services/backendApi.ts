@@ -381,6 +381,87 @@ export async function importShopsFile(file: File): Promise<{ message: string; co
   return res.json()
 }
 
+export async function importDepartmentTargetsFile(file: File): Promise<{ message: string; count: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  const res = await fetch(`${getBaseUrl()}/api/import/department-targets`, {
+    method: 'POST',
+    body: formData,
+  })
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  
+  return res.json()
+}
+
+export async function importOperatorGroupTargetsFile(file: File): Promise<{ message: string; count: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  const res = await fetch(`${getBaseUrl()}/api/import/operator-group-targets`, {
+    method: 'POST',
+    body: formData,
+  })
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  
+  return res.json()
+}
+
+export async function importOperatorTargetsFile(file: File): Promise<{ message: string; count: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  const res = await fetch(`${getBaseUrl()}/api/import/operator-targets`, {
+    method: 'POST',
+    body: formData,
+  })
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  
+  return res.json()
+}
+
+// 保存单条目标到后端
+export async function saveDepartmentTargetToBackend(target: DepartmentTarget): Promise<void> {
+  await apiPost('/api/department-targets', {
+    shop: (target as any).shop || '',
+    target_sales: target.targetSales,
+    target_gross_profit: target.targetGrossProfit,
+    target_margin_rate: (target as any).targetMarginRate || 0.2,
+    month: target.month,
+  })
+}
+
+export async function saveOperatorGroupTargetToBackend(target: OperatorGroupTarget): Promise<void> {
+  await apiPost('/api/operator-group-targets', {
+    operator_group: target.operatorGroup,
+    target_sales: target.targetSales,
+    target_gross_profit: target.targetGrossProfit,
+    month: target.month,
+  })
+}
+
+export async function saveOperatorTargetToBackend(target: OperatorTarget): Promise<void> {
+  await apiPost('/api/operator-targets', {
+    operator: target.operator,
+    operator_group: target.operatorGroup,
+    target_sales: target.targetSales,
+    target_gross_profit: target.targetGrossProfit,
+    month: target.month,
+  })
+}
+
 // ============================================
 // 获取原始数据（用于前端从后端加载）
 // ============================================
