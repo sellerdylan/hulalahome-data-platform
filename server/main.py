@@ -479,6 +479,142 @@ async def get_spu_list(
         return {"success": True, "data": spus}
 
 
+# ==================== 获取原始数据（用于前端展示）====================
+
+@app.get("/api/data/orders")
+async def get_orders():
+    """获取所有订单数据"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT date, shop, order_id, sku, quantity, sales_amount as sales, cost, warehouse, commission
+            FROM orders ORDER BY date DESC
+        """)
+        orders = [dict(row) for row in cursor.fetchall()]
+        return {"success": True, "data": orders}
+
+
+@app.get("/api/data/ad-data")
+async def get_ad_data():
+    """获取所有广告数据"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT date, shop, spu, ad_spend as adSpend
+            FROM ad_data ORDER BY date DESC
+        """)
+        ads = [dict(row) for row in cursor.fetchall()]
+        return {"success": True, "data": ads}
+
+
+@app.get("/api/data/sku-base-info")
+async def get_sku_base_info():
+    """获取所有SKU基础信息"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM sku_base_info ORDER BY shop, sku")
+        infos = [dict(row) for row in cursor.fetchall()]
+        # 转换字段名以匹配前端期望的格式
+        for info in infos:
+            if 'refund_rate' in info:
+                info['refundRate'] = info.pop('refund_rate')
+            if 'sales_grade' in info:
+                info['salesGrade'] = info.pop('sales_grade')
+            if 'operator_group' in info:
+                info['operatorGroup'] = info.pop('operator_group')
+            if 'product_level' in info:
+                info['productLevel'] = info.pop('product_level')
+            if 'cg_freight' in info:
+                info['cgFreight'] = info.pop('cg_freight')
+            if 'pl_freight' in info:
+                info['plFreight'] = info.pop('pl_freight')
+            if 'fedex_freight' in info:
+                info['fedexFreight'] = info.pop('fedex_freight')
+            if 'created_at' in info:
+                info.pop('created_at')
+            if 'updated_at' in info:
+                info.pop('updated_at')
+        return {"success": True, "data": infos}
+
+
+@app.get("/api/data/shops")
+async def get_shops_data():
+    """获取所有店铺费率信息"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM shops ORDER BY name")
+        shops = [dict(row) for row in cursor.fetchall()]
+        # 转换字段名以匹配前端期望的格式
+        for shop in shops:
+            if 'refund_rate' in shop:
+                shop['refundRate'] = shop.pop('refund_rate')
+            if 'dsp_rate' in shop:
+                shop['dspRate'] = shop.pop('dsp_rate')
+            if 'return_freight_rate' in shop:
+                shop['refundFreightRate'] = shop.pop('return_freight_rate')
+            if 'storage_rate' in shop:
+                shop['storageRate'] = shop.pop('storage_rate')
+            if 'target_margin_rate' in shop:
+                shop['targetMarginRate'] = shop.pop('target_margin_rate')
+            if 'created_at' in shop:
+                shop.pop('created_at')
+            if 'updated_at' in shop:
+                shop.pop('updated_at')
+            # 重命名 id 为 shopId
+            if 'id' in shop:
+                shop['shopId'] = shop.pop('id')
+        return {"success": True, "data": shops}
+
+
+@app.get("/api/data/targets")
+async def get_all_targets():
+    """获取所有目标数据"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 部门目标
+        cursor.execute("SELECT * FROM department_targets ORDER BY month DESC, shop")
+        dept_targets = [dict(row) for row in cursor.fetchall()]
+        for t in dept_targets:
+            if 'target_sales' in t:
+                t['targetSales'] = t.pop('target_sales')
+            if 'target_gross_profit' in t:
+                t['targetGrossProfit'] = t.pop('target_gross_profit')
+            if 'target_margin_rate' in t:
+                t['targetMarginRate'] = t.pop('target_margin_rate')
+        
+        # 运营组目标
+        cursor.execute("SELECT * FROM operator_group_targets ORDER BY month DESC, operator_group")
+        group_targets = [dict(row) for row in cursor.fetchall()]
+        for t in group_targets:
+            if 'target_sales' in t:
+                t['targetSales'] = t.pop('target_sales')
+            if 'target_gross_profit' in t:
+                t['targetGrossProfit'] = t.pop('target_gross_profit')
+            if 'operator_group' in t:
+                t['operatorGroup'] = t.pop('operator_group')
+        
+        # 运营目标
+        cursor.execute("SELECT * FROM operator_targets ORDER BY month DESC, operator")
+        op_targets = [dict(row) for row in cursor.fetchall()]
+        for t in op_targets:
+            if 'target_sales' in t:
+                t['targetSales'] = t.pop('target_sales')
+            if 'target_gross_profit' in t:
+                t['targetGrossProfit'] = t.pop('target_gross_profit')
+            if 'operator_group' in t:
+                t['operatorGroup'] = t.pop('operator_group')
+        
+        return {
+            "success": True,
+            "data": {
+                "departmentTargets": dept_targets,
+                "operatorGroupTargets": group_targets,
+                "operatorTargets": op_targets
+            }
+        }
+
+
 # ==================== 数据导入 ====================
 
 @app.post("/api/import/orders")

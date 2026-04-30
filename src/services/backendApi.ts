@@ -380,3 +380,41 @@ export async function importShopsFile(file: File): Promise<{ message: string; co
   
   return res.json()
 }
+
+// ============================================
+// 获取原始数据（用于前端从后端加载）
+// ============================================
+export async function getOrders(): Promise<Order[]> {
+  const res = await apiGet<{ success: boolean; data: Order[] }>('/api/data/orders')
+  return res.data || []
+}
+
+export async function getAdData(): Promise<AdData[]> {
+  const res = await apiGet<{ success: boolean; data: AdData[] }>('/api/data/ad-data')
+  return res.data || []
+}
+
+export async function getSkuBaseInfo(): Promise<SkuBaseInfo[]> {
+  const res = await apiGet<{ success: boolean; data: SkuBaseInfo[] }>('/api/data/sku-base-info')
+  return res.data || []
+}
+
+export async function getShopsData(): Promise<ShopRate[]> {
+  const res = await apiGet<{ success: boolean; data: ShopRate[] }>('/api/data/shops')
+  return res.data || []
+}
+
+export interface AllTargets {
+  departmentTargets: DepartmentTarget[]
+  operatorGroupTargets: OperatorGroupTarget[]
+  operatorTargets: OperatorTarget[]
+}
+
+export async function getAllTargets(): Promise<AllTargets> {
+  const res = await apiGet<{ success: boolean; data: AllTargets }>('/api/data/targets')
+  return res.data || {
+    departmentTargets: [],
+    operatorGroupTargets: [],
+    operatorTargets: []
+  }
+}

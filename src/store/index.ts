@@ -13,6 +13,7 @@ import type {
   OperatorTarget,
 } from '@/types'
 import dayjs from 'dayjs'
+import { getOrders, getAdData, getSkuBaseInfo, getShopsData, getAllTargets } from '@/services/backendApi'
 
 // ============================================
 // IndexedDB 配置
@@ -163,22 +164,28 @@ export const useFilterStore = create<FilterStore>((set) => ({
 
 interface SystemSettingsStore {
   shopRates: ShopRate[]
+  skuFreights: SkuFreight[]
+  skuRefundRates: SkuRefundRate[]
+  skuBaseInfo: SkuBaseInfo[]
+  isLoading: boolean
   setShopRates: (data: ShopRate[]) => void
   clearShopRates: () => void
-  skuFreights: SkuFreight[]
   setSkuFreights: (data: SkuFreight[]) => void
   clearSkuFreights: () => void
-  skuRefundRates: SkuRefundRate[]
   setSkuRefundRates: (data: SkuRefundRate[]) => void
   clearSkuRefundRates: () => void
-  skuBaseInfo: SkuBaseInfo[]
   setSkuBaseInfo: (data: SkuBaseInfo[]) => void
   clearSkuBaseInfo: () => void
+  setLoading: (loading: boolean) => void
   init: () => Promise<void>
 }
 
 export const useSystemStore = create<SystemSettingsStore>((set) => ({
   shopRates: [],
+  skuFreights: [],
+  skuRefundRates: [],
+  skuBaseInfo: [],
+  isLoading: false,
   setShopRates: (data) => {
     persistData('hulalahome_shop_rates', data)
     set({ shopRates: data })
@@ -188,7 +195,6 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
     set({ shopRates: [] })
   },
   
-  skuFreights: [],
   setSkuFreights: (data) => {
     persistData('hulalahome_sku_freights', data)
     set({ skuFreights: data })
@@ -198,7 +204,6 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
     set({ skuFreights: [] })
   },
   
-  skuRefundRates: [],
   setSkuRefundRates: (data) => {
     persistData('hulalahome_sku_refund_rates', data)
     set({ skuRefundRates: data })
@@ -208,7 +213,6 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
     set({ skuRefundRates: [] })
   },
   
-  skuBaseInfo: [],
   setSkuBaseInfo: (data) => {
     persistData('hulalahome_sku_base_info', data)
     set({ skuBaseInfo: data })
@@ -217,15 +221,64 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
     persistData('hulalahome_sku_base_info', [])
     set({ skuBaseInfo: [] })
   },
+  setLoading: (isLoading) => set({ isLoading }),
   
   init: async () => {
-    await preloadFromIndexedDB()
-    set({
-      shopRates: getCached<ShopRate[]>('hulalahome_shop_rates', []),
-      skuFreights: getCached<SkuFreight[]>('hulalahome_sku_freights', []),
-      skuRefundRates: getCached<SkuRefundRate[]>('hulalahome_sku_refund_rates', []),
-      skuBaseInfo: getCached<SkuBaseInfo[]>('hulalahome_sku_base_info', []),
-    })
+    set({ isLoading: true })
+    try {
+      // 优先从后端 API 加载数据（实现数据共享）
+      const [shopRates, skuBaseInfo, targets] = await Promise.all([
+        getShopsData(),
+        getSkuBaseInfo(),
+        getAllTargets(),
+      ])
+      console.log('[SystemStore] Loaded from backend:', shopRates.length, 'shops,', skuBaseInfo.length, 'SKU info')
+      
+      // 分离 SKU 运费和退款率（从 sku_base_info 中提取）
+      const skuFreights: SkuFreight[] = skuBaseInfo.map(info => ({
+        id: `${info.shop}-${info.sku}`,
+        shop: info.shop,
+        sku: info.sku,
+        cgFreight: (info as any).cgFreight || 0,
+        plFreight: (info as any).plFreight || 0,
+        fedexFreight: (info as any).fedexFreight || 0,
+        selfFreight: 0,
+      }))
+      
+      const skuRefundRates: SkuRefundRate[] = skuBaseInfo
+        .filter(info => (info as any).refundRate !== undefined && (info as any).refundRate !== null)
+        .map(info => ({
+          id: `${info.shop}-${info.sku}`,
+          shop: info.shop,
+          sku: info.sku,
+          refundRate: (info as any).refundRate,
+        }))
+      
+      set({
+        shopRates,
+        skuFreights,
+        skuRefundRates,
+        skuBaseInfo,
+        isLoading: false,
+      })
+      
+      // 同时更新 TargetStore（因为都在一个 API 返回里）
+      const { setDepartmentTargets, setOperatorGroupTargets, setOperatorTargets } = useTargetStore.getState()
+      setDepartmentTargets(targets.departmentTargets)
+      setOperatorGroupTargets(targets.operatorGroupTargets)
+      setOperatorTargets(targets.operatorTargets)
+    } catch (e) {
+      console.warn('[SystemStore] Failed to load from backend, falling back to IndexedDB:', e)
+      // 降级：从 IndexedDB 加载
+      await preloadFromIndexedDB()
+      set({
+        shopRates: getCached<ShopRate[]>('hulalahome_shop_rates', []),
+        skuFreights: getCached<SkuFreight[]>('hulalahome_sku_freights', []),
+        skuRefundRates: getCached<SkuRefundRate[]>('hulalahome_sku_refund_rates', []),
+        skuBaseInfo: getCached<SkuBaseInfo[]>('hulalahome_sku_base_info', []),
+        isLoading: false,
+      })
+    }
   },
 }))
 
@@ -269,11 +322,25 @@ export const useDataStore = create<DataStore>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   
   init: async () => {
-    await preloadFromIndexedDB()
-    set({
-      orders: getCached<Order[]>('hulalahome_orders', []),
-      adData: getCached<AdData[]>('hulalahome_ad_data', []),
-    })
+    set({ isLoading: true })
+    try {
+      // 优先从后端 API 加载数据（实现数据共享）
+      const [orders, adData] = await Promise.all([
+        getOrders(),
+        getAdData(),
+      ])
+      console.log('[DataStore] Loaded from backend:', orders.length, 'orders,', adData.length, 'ad data')
+      set({ orders, adData, isLoading: false })
+    } catch (e) {
+      console.warn('[DataStore] Failed to load from backend, falling back to IndexedDB:', e)
+      // 降级：从 IndexedDB 加载
+      await preloadFromIndexedDB()
+      set({
+        orders: getCached<Order[]>('hulalahome_orders', []),
+        adData: getCached<AdData[]>('hulalahome_ad_data', []),
+        isLoading: false,
+      })
+    }
   },
 }))
 
@@ -323,12 +390,25 @@ export const useTargetStore = create<TargetStore>((set) => ({
     set({ operatorTargets: [] })
   },
   init: async () => {
-    await preloadFromIndexedDB()
-    set({
-      departmentTargets: getCached<DepartmentTarget[]>('hulalahome_department_targets', []),
-      operatorGroupTargets: getCached<OperatorGroupTarget[]>('hulalahome_operator_group_targets', []),
-      operatorTargets: getCached<OperatorTarget[]>('hulalahome_operator_targets', []),
-    })
+    try {
+      // 优先从后端 API 加载数据（实现数据共享）
+      const targets = await getAllTargets()
+      console.log('[TargetStore] Loaded from backend:', targets.departmentTargets.length, 'dept targets')
+      set({
+        departmentTargets: targets.departmentTargets,
+        operatorGroupTargets: targets.operatorGroupTargets,
+        operatorTargets: targets.operatorTargets,
+      })
+    } catch (e) {
+      console.warn('[TargetStore] Failed to load from backend, falling back to IndexedDB:', e)
+      // 降级：从 IndexedDB 加载
+      await preloadFromIndexedDB()
+      set({
+        departmentTargets: getCached<DepartmentTarget[]>('hulalahome_department_targets', []),
+        operatorGroupTargets: getCached<OperatorGroupTarget[]>('hulalahome_operator_group_targets', []),
+        operatorTargets: getCached<OperatorTarget[]>('hulalahome_operator_targets', []),
+      })
+    }
   },
 }))
 

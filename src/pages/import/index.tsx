@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Order, AdData } from '@/types'
+import { importOrdersFile, importAdsFile } from '@/services/backendApi'
 
 interface ImportPageProps {
   orders: Order[]
@@ -191,12 +192,22 @@ const parseOrdersFromExcel = (rows: any[]): Order[] => {
     if (!file) return
 
     try {
+      // 1. 先解析本地文件（用于更新本地 store）
       const rows = await parseExcelFile(file)
       const data = parseOrdersFromExcel(rows)
 
       console.log('【订单导入】共', data.length, '条')
       console.log('【第一条订单】', data[0])
 
+      // 2. 上传到后端（实现数据共享）
+      try {
+        const result = await importOrdersFile(file)
+        console.log('【后端导入结果】', result)
+      } catch (apiError) {
+        console.warn('【后端上传失败，但本地数据已保存】', apiError)
+      }
+
+      // 3. 更新本地 store
       onImportOrders?.(data)
 
       setOrderImportStatus('success')
@@ -214,12 +225,22 @@ const parseOrdersFromExcel = (rows: any[]): Order[] => {
     if (!file) return
 
     try {
+      // 1. 先解析本地文件（用于更新本地 store）
       const rows = await parseExcelFile(file)
       const data = parseAdFromExcel(rows)
 
       console.log('【广告导入】共', data.length, '条')
       console.log('【第一条广告】', data[0])
 
+      // 2. 上传到后端（实现数据共享）
+      try {
+        const result = await importAdsFile(file)
+        console.log('【后端导入结果】', result)
+      } catch (apiError) {
+        console.warn('【后端上传失败，但本地数据已保存】', apiError)
+      }
+
+      // 3. 更新本地 store
       onImportAdData?.(data)
 
       setAdImportStatus('success')
