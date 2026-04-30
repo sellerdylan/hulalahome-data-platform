@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "server/Dockerfile"
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
     "region": "us-east",
