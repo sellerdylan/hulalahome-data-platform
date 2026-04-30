@@ -107,7 +107,7 @@ async def get_shops():
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM shops ORDER BY name")
-        shops = [dict(row) for row in cursor.fetchall()]
+        shops = cursor.fetchall()
         return {"success": True, "data": shops}
 
 
@@ -150,7 +150,7 @@ async def get_department_targets(month: Optional[str] = None):
             )
         else:
             cursor.execute("SELECT * FROM department_targets ORDER BY month DESC, shop")
-        targets = [dict(row) for row in cursor.fetchall()]
+        targets = cursor.fetchall()
         return {"success": True, "data": targets}
 
 
@@ -193,7 +193,7 @@ async def get_operator_group_targets(month: Optional[str] = None):
             )
         else:
             cursor.execute("SELECT * FROM operator_group_targets ORDER BY month DESC, operator_group")
-        targets = [dict(row) for row in cursor.fetchall()]
+        targets = cursor.fetchall()
         return {"success": True, "data": targets}
 
 
@@ -235,7 +235,7 @@ async def get_operator_targets(month: Optional[str] = None):
             )
         else:
             cursor.execute("SELECT * FROM operator_targets ORDER BY month DESC, operator")
-        targets = [dict(row) for row in cursor.fetchall()]
+        targets = cursor.fetchall()
         return {"success": True, "data": targets}
 
 
@@ -320,7 +320,7 @@ async def get_dashboard_summary(
             ORDER BY o.date DESC, o.shop
         """, params)
 
-        daily_data = [dict(row) for row in cursor.fetchall()]
+        daily_data = cursor.fetchall()
 
         # 获取广告数据（按日期+店铺聚合）
         ad_conditions = ["ad.date BETWEEN ? AND ?"]
@@ -345,7 +345,7 @@ async def get_dashboard_summary(
 
         # 获取店铺参数（退款率、DSP费率等）
         cursor.execute("SELECT name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate FROM shops")
-        shop_params = {row['name']: dict(row) for row in cursor.fetchall()}
+        shop_params = {row['name"]: row for row in cursor.fetchall()}
 
         # 计算汇总
         result = []
@@ -445,7 +445,7 @@ async def get_spu_list(
         query += " GROUP BY s.spu, s.shop ORDER BY total_sales DESC"
 
         cursor.execute(query, params)
-        spus = [dict(row) for row in cursor.fetchall()]
+        spus = cursor.fetchall()
 
         # 获取广告数据
         for spu in spus:
@@ -460,7 +460,7 @@ async def get_spu_list(
 
         # 获取店铺参数
         cursor.execute("SELECT name, refund_rate, dsp_rate, return_freight_rate, storage_rate FROM shops")
-        shop_params = {row['name']: dict(row) for row in cursor.fetchall()}
+        shop_params = {row['name"]: row for row in cursor.fetchall()}
 
         # 计算毛利
         for spu in spus:
@@ -490,7 +490,7 @@ async def get_orders():
             SELECT date, shop, order_id, sku, quantity, sales_amount as sales, cost, warehouse, commission
             FROM orders ORDER BY date DESC
         """)
-        orders = [dict(row) for row in cursor.fetchall()]
+        orders = cursor.fetchall()
         return {"success": True, "data": orders}
 
 
@@ -503,7 +503,7 @@ async def get_ad_data():
             SELECT date, shop, spu, ad_spend as adSpend
             FROM ad_data ORDER BY date DESC
         """)
-        ads = [dict(row) for row in cursor.fetchall()]
+        ads = cursor.fetchall()
         return {"success": True, "data": ads}
 
 
@@ -513,7 +513,7 @@ async def get_sku_base_info():
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM sku_base_info ORDER BY shop, sku")
-        infos = [dict(row) for row in cursor.fetchall()]
+        infos = cursor.fetchall()
         # 转换字段名以匹配前端期望的格式
         for info in infos:
             if 'refund_rate' in info:
@@ -543,7 +543,7 @@ async def get_shops_data():
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM shops ORDER BY name")
-        shops = [dict(row) for row in cursor.fetchall()]
+        shops = cursor.fetchall()
         # 转换字段名以匹配前端期望的格式
         for shop in shops:
             if 'refund_rate' in shop:
@@ -574,7 +574,7 @@ async def get_all_targets():
         
         # 部门目标
         cursor.execute("SELECT * FROM department_targets ORDER BY month DESC, shop")
-        dept_targets = [dict(row) for row in cursor.fetchall()]
+        dept_targets = cursor.fetchall()
         for t in dept_targets:
             if 'target_sales' in t:
                 t['targetSales'] = t.pop('target_sales')
@@ -585,7 +585,7 @@ async def get_all_targets():
         
         # 运营组目标
         cursor.execute("SELECT * FROM operator_group_targets ORDER BY month DESC, operator_group")
-        group_targets = [dict(row) for row in cursor.fetchall()]
+        group_targets = cursor.fetchall()
         for t in group_targets:
             if 'target_sales' in t:
                 t['targetSales'] = t.pop('target_sales')
@@ -596,7 +596,7 @@ async def get_all_targets():
         
         # 运营目标
         cursor.execute("SELECT * FROM operator_targets ORDER BY month DESC, operator")
-        op_targets = [dict(row) for row in cursor.fetchall()]
+        op_targets = cursor.fetchall()
         for t in op_targets:
             if 'target_sales' in t:
                 t['targetSales'] = t.pop('target_sales')
@@ -887,7 +887,7 @@ async def get_spu_daily(
             ORDER BY o.date DESC
         """, params)
 
-        daily_data = [dict(row) for row in cursor.fetchall()]
+        daily_data = cursor.fetchall()
 
         # 获取广告数据
         for d in daily_data:
