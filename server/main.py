@@ -567,6 +567,7 @@ async def get_sku_base_info():
         infos = cursor.fetchall()
         # 转换字段名以匹配前端期望的格式
         for info in infos:
+            # 基础字段
             if 'refund_rate' in info:
                 info['refundRate'] = info.pop('refund_rate')
             if 'sales_grade' in info:
@@ -575,12 +576,16 @@ async def get_sku_base_info():
                 info['operatorGroup'] = info.pop('operator_group')
             if 'product_level' in info:
                 info['productLevel'] = info.pop('product_level')
+            # 运费字段：后端存储 cg_freight, pl_freight, fedex_freight
+            # 前端 SkuFreight 类型期望 cgFreight, plFreight, selfFreight
+            # 这里 fedexFreight 保持不变，selfFreight 从 sku_base_info 中没有，需要前端处理
             if 'cg_freight' in info:
                 info['cgFreight'] = info.pop('cg_freight')
             if 'pl_freight' in info:
                 info['plFreight'] = info.pop('pl_freight')
             if 'fedex_freight' in info:
                 info['fedexFreight'] = info.pop('fedex_freight')
+            # 移除元数据字段
             if 'created_at' in info:
                 info.pop('created_at')
             if 'updated_at' in info:
@@ -607,13 +612,16 @@ async def get_shops_data():
                 shop['storageRate'] = shop.pop('storage_rate')
             if 'target_margin_rate' in shop:
                 shop['targetMarginRate'] = shop.pop('target_margin_rate')
+            if 'name' in shop:
+                # 将 name 映射为 shop（前端 ShopRate 类型期望 shop 字段）
+                shop['shop'] = shop.pop('name')
+            if 'id' in shop:
+                # 保留 id 字段，但也要有 shopId（兼容性）
+                shop['shopId'] = shop['id']
             if 'created_at' in shop:
                 shop.pop('created_at')
             if 'updated_at' in shop:
                 shop.pop('updated_at')
-            # 重命名 id 为 shopId
-            if 'id' in shop:
-                shop['shopId'] = shop.pop('id')
         return {"success": True, "data": shops}
 
 

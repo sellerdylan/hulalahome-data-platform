@@ -234,28 +234,40 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
       ])
       console.log('[SystemStore] Loaded from backend:', shopRates.length, 'shops,', skuBaseInfo.length, 'SKU info')
       
-      // 分离 SKU 运费和退款率（从 sku_base_info 中提取）
+      // 分离 SKU 运费（从 sku_base_info 中提取，后端已转换字段名）
       const skuFreights: SkuFreight[] = skuBaseInfo.map(info => ({
         id: `${info.shop}-${info.sku}`,
         shop: info.shop,
         sku: info.sku,
-        cgFreight: (info as any).cgFreight || 0,
-        plFreight: (info as any).plFreight || 0,
-        fedexFreight: (info as any).fedexFreight || 0,
-        selfFreight: 0,
+        cgFreight: (info as any).cgFreight || (info as any).cg_freight || 0,
+        plFreight: (info as any).plFreight || (info as any).pl_freight || 0,
+        // 后端返回 fedexFreight，前端类型期望 selfFreight，做兼容映射
+        selfFreight: (info as any).selfFreight || (info as any).fedexFreight || (info as any).fedex_freight || 0,
+      }))
+      
+      // 转换店铺数据格式（兼容后端返回的数据）
+      const convertedShopRates: ShopRate[] = (shopRates as any[]).map((shop: any) => ({
+        id: String(shop.id || shop.shopId || Math.random().toString(36).substring(2, 11)),
+        shop: shop.shop || shop.name || '',
+        dspRate: shop.dspRate || shop.dsp_rate || 0,
+        refundFreightRate: shop.refundFreightRate || shop.return_freight_rate || 0,
+        storageRate: shop.storageRate || shop.storage_rate || 0,
       }))
       
       const skuRefundRates: SkuRefundRate[] = skuBaseInfo
-        .filter(info => (info as any).refundRate !== undefined && (info as any).refundRate !== null)
+        .filter(info => {
+          const rate = (info as any).refundRate || (info as any).refund_rate
+          return rate !== undefined && rate !== null && rate !== ''
+        })
         .map(info => ({
           id: `${info.shop}-${info.sku}`,
           shop: info.shop,
           sku: info.sku,
-          refundRate: (info as any).refundRate,
+          refundRate: (info as any).refundRate || (info as any).refund_rate || 0,
         }))
       
       set({
-        shopRates,
+        shopRates: convertedShopRates,
         skuFreights,
         skuRefundRates,
         skuBaseInfo,
