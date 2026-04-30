@@ -56,18 +56,69 @@ class DictCursor:
         return self._cursor.executemany(sql, params_list)
 
     def fetchall(self):
-        """获取所有行，自动转换为 dict"""
+        """获取所有行，统一转换为纯 dict"""
         rows = self._cursor.fetchall()
         if not rows:
             return []
-        # PostgreSQL RealDictCursor 返回 dict，SQLite Row 也支持 dict() 转换
+        
+        # 统一转换：使用列名 + 索引获取值，避免 sqlite3.Row / RealDictRow 差异
+        # sqlite3.Row: 通过索引获取值，但 dict(row) 转换后键是大写
+        # RealDictRow: 直接是字典，dict(row) 可以工作但某些情况可能有问题
+        # 统一方案：使用 description 获取列名，用索引获取值
+        try:
+            desc = self._cursor.description
+            if desc:
+                col_names = [col[0].lower() for col in desc]  # 统一小写
+                result = []
+                for row in rows:
+                    d = {}
+                    for i, col_name in enumerate(col_names):
+                        try:
+                            # RealDictRow 支持索引访问，sqlite3.Row 也支持
+                            d[col_name] = row[i]
+                        except (IndexError, TypeError, KeyError):
+                            # fallback: 直接尝试 dict 转换
+                            if hasattr(row, 'keys'):
+                                d = dict(row)
+                                break
+                            else:
+                                d[col_name] = row
+                    if isinstance(d, dict):
+                        result.append(d)
+                    else:
+                        result.append(d)
+                return result
+        except Exception:
+            pass
+        
+        # Fallback: 尝试直接转换
         return [dict(row) if hasattr(row, 'keys') else row for row in rows]
 
     def fetchone(self):
-        """获取一行"""
+        """获取一行，统一转换为纯 dict"""
         row = self._cursor.fetchone()
         if row is None:
             return None
+        
+        # 统一转换：使用列名 + 索引获取值
+        try:
+            desc = self._cursor.description
+            if desc:
+                col_names = [col[0].lower() for col in desc]
+                d = {}
+                for i, col_name in enumerate(col_names):
+                    try:
+                        d[col_name] = row[i]
+                    except (IndexError, TypeError, KeyError):
+                        if hasattr(row, 'keys'):
+                            return dict(row)
+                        else:
+                            d[col_name] = row
+                return d
+        except Exception:
+            pass
+        
+        # Fallback
         return dict(row) if hasattr(row, 'keys') else row
 
     @property
