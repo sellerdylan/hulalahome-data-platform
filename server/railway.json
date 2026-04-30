@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install --no-cache-dir -r requirements.txt"
+  },
+  "deploy": {
+    "region": "us-east",
+    "numReplicas": 1
+  }
+}
