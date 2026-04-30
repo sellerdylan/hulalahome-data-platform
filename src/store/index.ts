@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { openDB, type IDBPDatabase } from 'idb'
 import type { 
   FilterState, 
   ShopRate,
@@ -14,26 +15,108 @@ import type {
 import dayjs from 'dayjs'
 
 // ============================================
-// API 配置 - 从环境变量获取后端地址
+// IndexedDB 配置
 // ============================================
-const getBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const DB_NAME = 'hulalahome_db_v3' // 新名称，避免旧版本干扰
+const DB_VERSION = 1
+const STORE_NAME = 'data_store'
+
+let dbPromise: Promise<IDBPDatabase> | null = null
+
+const getDB = () => {
+  if (!dbPromise) {
+    dbPromise = openDB(DB_NAME, DB_VERSION, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME)
+        }
+      },
+    })
+  }
+  return dbPromise
 }
 
-const apiGet = async <T,>(path: string): Promise<T> => {
-  const res = await fetch(`${getBaseUrl()}${path}`)
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  return res.json()
+// ============================================
+// 数据持久化工具（IndexedDB）
+// ============================================
+
+/** 异步保存到 IndexedDB */
+const saveToIndexedDB = async <T,>(key: string, data: T): Promise<void> => {
+  try {
+    const db = await getDB()
+    await db.put(STORE_NAME, data, key)
+    console.log(`[Save] ${key}: ${Array.isArray(data) ? data.length : 'N/A'} items`)
+  } catch (e) {
+    console.error(`[Save] Failed to save ${key}:`, e)
+  }
 }
 
-const apiPost = async <T,>(path: string, data: unknown): Promise<T> => {
-  const res = await fetch(`${getBaseUrl()}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  return res.json()
+/** 从 IndexedDB 异步加载 */
+const loadFromIndexedDB = async <T,>(key: string, defaultValue: T): Promise<T> => {
+  try {
+    const db = await getDB()
+    const data = await db.get(STORE_NAME, key) as T | undefined
+    if (data !== undefined) {
+      console.log(`[Load] ${key}: ${Array.isArray(data) ? data.length : 'N/A'} items loaded from IndexedDB`)
+      return data
+    }
+    console.log(`[Load] ${key}: not found in IndexedDB, using default`)
+    return defaultValue
+  } catch (e) {
+    console.error(`[Load] Failed to load ${key}:`, e)
+    return defaultValue
+  }
+}
+
+// ============================================
+// 内存缓存 + IndexedDB 持久化
+// ============================================
+
+const memoryCache: Record<string, unknown> = {}
+
+/** 同步保存：更新内存 + 异步写 IndexedDB */
+const persistData = <T,>(key: string, data: T): void => {
+  memoryCache[key] = data
+  saveToIndexedDB(key, data).catch(e => console.error('[Persist] Save error:', e))
+}
+
+/** 同步加载：只读内存（必须在 init 时预加载） */
+const getCached = <T,>(key: string, defaultValue: T): T => {
+  const cached = memoryCache[key]
+  if (cached !== undefined) {
+    return cached as T
+  }
+  return defaultValue
+}
+
+/** 预加载所有需要的 key 到内存 */
+const preloadFromIndexedDB = async (): Promise<void> => {
+  const keysToPreload = [
+    'hulalahome_orders',
+    'hulalahome_ad_data',
+    'hulalahome_shop_rates',
+    'hulalahome_sku_freights',
+    'hulalahome_sku_refund_rates',
+    'hulalahome_sku_base_info',
+    'hulalahome_department_targets',
+    'hulalahome_operator_group_targets',
+    'hulalahome_operator_targets',
+  ]
+
+  console.log('[Init] Preloading', keysToPreload.length, 'keys from IndexedDB...')
+  
+  for (const key of keysToPreload) {
+    const data = await loadFromIndexedDB<unknown[]>(key, [])
+    memoryCache[key] = data
+  }
+
+  console.log('[Init] Preload complete')
+  
+  // 打印每个 key 的数量
+  for (const key of keysToPreload) {
+    const val = memoryCache[key]
+    console.log(`[Init]   ${key}: ${Array.isArray(val) ? val.length : typeof val}`)
+  }
 }
 
 // ============================================
@@ -70,7 +153,7 @@ export const useFilterStore = create<FilterStore>((set) => ({
     })),
   resetFilters: () => set({ filters: initialFilters }),
   init: async () => {
-    // 筛选器不需要初始化数据
+    await preloadFromIndexedDB()
   },
 }))
 
@@ -96,36 +179,58 @@ interface SystemSettingsStore {
 
 export const useSystemStore = create<SystemSettingsStore>((set) => ({
   shopRates: [],
-  setShopRates: (data) => set({ shopRates: data }),
-  clearShopRates: () => set({ shopRates: [] }),
+  setShopRates: (data) => {
+    persistData('hulalahome_shop_rates', data)
+    set({ shopRates: data })
+  },
+  clearShopRates: () => {
+    persistData('hulalahome_shop_rates', [])
+    set({ shopRates: [] })
+  },
   
   skuFreights: [],
-  setSkuFreights: (data) => set({ skuFreights: data }),
-  clearSkuFreights: () => set({ skuFreights: [] }),
+  setSkuFreights: (data) => {
+    persistData('hulalahome_sku_freights', data)
+    set({ skuFreights: data })
+  },
+  clearSkuFreights: () => {
+    persistData('hulalahome_sku_freights', [])
+    set({ skuFreights: [] })
+  },
   
   skuRefundRates: [],
-  setSkuRefundRates: (data) => set({ skuRefundRates: data }),
-  clearSkuRefundRates: () => set({ skuRefundRates: [] }),
+  setSkuRefundRates: (data) => {
+    persistData('hulalahome_sku_refund_rates', data)
+    set({ skuRefundRates: data })
+  },
+  clearSkuRefundRates: () => {
+    persistData('hulalahome_sku_refund_rates', [])
+    set({ skuRefundRates: [] })
+  },
   
   skuBaseInfo: [],
-  setSkuBaseInfo: (data) => set({ skuBaseInfo: data }),
-  clearSkuBaseInfo: () => set({ skuBaseInfo: [] }),
+  setSkuBaseInfo: (data) => {
+    persistData('hulalahome_sku_base_info', data)
+    set({ skuBaseInfo: data })
+  },
+  clearSkuBaseInfo: () => {
+    persistData('hulalahome_sku_base_info', [])
+    set({ skuBaseInfo: [] })
+  },
   
   init: async () => {
-    // 从后端加载店铺数据
-    try {
-      const res = await apiGet<{ success: boolean; data: ShopRate[] }>('/api/shops')
-      if (res.success) {
-        set({ shopRates: res.data })
-      }
-    } catch (e) {
-      console.error('[Init] Failed to load shops:', e)
-    }
+    await preloadFromIndexedDB()
+    set({
+      shopRates: getCached<ShopRate[]>('hulalahome_shop_rates', []),
+      skuFreights: getCached<SkuFreight[]>('hulalahome_sku_freights', []),
+      skuRefundRates: getCached<SkuRefundRate[]>('hulalahome_sku_refund_rates', []),
+      skuBaseInfo: getCached<SkuBaseInfo[]>('hulalahome_sku_base_info', []),
+    })
   },
 }))
 
 // ============================================
-// 业务数据 Store（订单 + 广告）- 从后端加载
+// 业务数据 Store（订单 + 广告）
 // ============================================
 
 interface DataStore {
@@ -145,16 +250,30 @@ export const useDataStore = create<DataStore>((set) => ({
   adData: [],
   isLoading: false,
   
-  setOrders: (data) => set({ orders: data }),
-  setAdData: (data) => set({ adData: data }),
-  clearOrders: () => set({ orders: [] }),
-  clearAdData: () => set({ adData: [] }),
+  setOrders: (data) => {
+    persistData('hulalahome_orders', data)
+    set({ orders: data })
+  },
+  setAdData: (data) => {
+    persistData('hulalahome_ad_data', data)
+    set({ adData: data })
+  },
+  clearOrders: () => {
+    persistData('hulalahome_orders', [])
+    set({ orders: [] })
+  },
+  clearAdData: () => {
+    persistData('hulalahome_ad_data', [])
+    set({ adData: [] })
+  },
   setLoading: (isLoading) => set({ isLoading }),
   
   init: async () => {
-    // 数据从后端加载，这里只需要初始化状态
-    // 实际数据通过 API 页面调用获取
-    set({ orders: [], adData: [] })
+    await preloadFromIndexedDB()
+    set({
+      orders: getCached<Order[]>('hulalahome_orders', []),
+      adData: getCached<AdData[]>('hulalahome_ad_data', []),
+    })
   },
 }))
 
@@ -179,26 +298,37 @@ export const useTargetStore = create<TargetStore>((set) => ({
   departmentTargets: [],
   operatorGroupTargets: [],
   operatorTargets: [],
-  setDepartmentTargets: (data) => set({ departmentTargets: data }),
-  setOperatorGroupTargets: (data) => set({ operatorGroupTargets: data }),
-  setOperatorTargets: (data) => set({ operatorTargets: data }),
-  clearDepartmentTargets: () => set({ departmentTargets: [] }),
-  clearOperatorGroupTargets: () => set({ operatorGroupTargets: [] }),
-  clearOperatorTargets: () => set({ operatorTargets: [] }),
+  setDepartmentTargets: (data) => {
+    persistData('hulalahome_department_targets', data)
+    set({ departmentTargets: data })
+  },
+  setOperatorGroupTargets: (data) => {
+    persistData('hulalahome_operator_group_targets', data)
+    set({ operatorGroupTargets: data })
+  },
+  setOperatorTargets: (data) => {
+    persistData('hulalahome_operator_targets', data)
+    set({ operatorTargets: data })
+  },
+  clearDepartmentTargets: () => {
+    persistData('hulalahome_department_targets', [])
+    set({ departmentTargets: [] })
+  },
+  clearOperatorGroupTargets: () => {
+    persistData('hulalahome_operator_group_targets', [])
+    set({ operatorGroupTargets: [] })
+  },
+  clearOperatorTargets: () => {
+    persistData('hulalahome_operator_targets', [])
+    set({ operatorTargets: [] })
+  },
   init: async () => {
-    // 从后端加载目标数据
-    try {
-      const [deptRes, groupRes, operatorRes] = await Promise.all([
-        apiGet<{ success: boolean; data: DepartmentTarget[] }>('/api/department-targets'),
-        apiGet<{ success: boolean; data: OperatorGroupTarget[] }>('/api/operator-group-targets'),
-        apiGet<{ success: boolean; data: OperatorTarget[] }>('/api/operator-targets'),
-      ])
-      if (deptRes.success) set({ departmentTargets: deptRes.data })
-      if (groupRes.success) set({ operatorGroupTargets: groupRes.data })
-      if (operatorRes.success) set({ operatorTargets: operatorRes.data })
-    } catch (e) {
-      console.error('[Init] Failed to load targets:', e)
-    }
+    await preloadFromIndexedDB()
+    set({
+      departmentTargets: getCached<DepartmentTarget[]>('hulalahome_department_targets', []),
+      operatorGroupTargets: getCached<OperatorGroupTarget[]>('hulalahome_operator_group_targets', []),
+      operatorTargets: getCached<OperatorTarget[]>('hulalahome_operator_targets', []),
+    })
   },
 }))
 
