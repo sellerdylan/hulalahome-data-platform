@@ -113,11 +113,21 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        val = df_row[name]
+                        if val is not None and str(val).strip():
+                            return val
+                return None
+
             # 验证必要的列
-            required_cols = ['店铺', 'SKU', 'SPU']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            shop = get_col(df.iloc[0], '店铺', 'shop', 'Shop') if len(df) > 0 else None
+            sku = get_col(df.iloc[0], 'SKU', 'sku', 'Sku', 'sku_code') if len(df) > 0 else None
+            spu = get_col(df.iloc[0], 'SPU', 'spu', 'Spu', 'product_id') if len(df) > 0 else None
+            if shop is None or sku is None or spu is None:
+                return {'success': False, 'error': '缺少必要的列: 店铺/SKU/SPU（或 shop/sku/spu）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -125,6 +135,13 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
+                        shop_val = str(get_col(row, '店铺', 'shop', 'Shop') or '')
+                        sku_val = str(get_col(row, 'SKU', 'sku', 'Sku', 'sku_code') or '')
+                        spu_val = str(get_col(row, 'SPU', 'spu', 'Spu', 'product_id') or '')
+
+                        if not shop_val or not sku_val or not spu_val:
+                            continue
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO sku_base_info
                             (shop, sku, asin, spu, lifecycle, sales_grade, category,
@@ -132,20 +149,20 @@ class DataImporter:
                              cg_freight, pl_freight, fedex_freight)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            str(row['店铺']),
-                            str(row['SKU']),
-                            str(row.get('ASIN', '')),
-                            str(row['SPU']),
-                            str(row.get('生命周期', '')),
-                            str(row.get('销售等级', '')),
-                            str(row.get('品类', '')),
-                            str(row.get('产品定级', '')),
-                            str(row.get('运营', '')),
-                            str(row.get('运营组', '')),
-                            float(row.get('退款率', 0)),
-                            float(row.get('CG运费', 0)),
-                            float(row.get('3PL运费', 0)),
-                            float(row.get('Fedex运费', 0)),
+                            shop_val,
+                            sku_val,
+                            str(get_col(row, 'ASIN', 'asin', 'Asin') or ''),
+                            spu_val,
+                            str(get_col(row, '生命周期', 'lifecycle', 'Lifecycle') or ''),
+                            str(get_col(row, '销售等级', 'sales_grade', 'salesGrade', 'SalesGrade') or ''),
+                            str(get_col(row, '品类', 'category', 'Category') or ''),
+                            str(get_col(row, '产品定级', 'product_level', 'productLevel', 'ProductLevel') or ''),
+                            str(get_col(row, '运营', 'operator', 'Operator') or ''),
+                            str(get_col(row, '运营组', 'operator_group', 'operatorGroup', 'OperatorGroup') or ''),
+                            float(get_col(row, '退款率', 'refund_rate', 'refundRate') or 0),
+                            float(get_col(row, 'CG运费', 'cg_freight', 'cgFreight') or 0),
+                            float(get_col(row, '3PL运费', 'pl_freight', 'plFreight') or 0),
+                            float(get_col(row, 'Fedex运费', 'fedex_freight', 'fedexFreight') or 0),
                         ))
                         count += 1
                     except Exception as e:
@@ -161,10 +178,20 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
-            required_cols = ['仓库', '档位', 'SKU', '运费']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        val = df_row[name]
+                        if val is not None and str(val).strip():
+                            return val
+                return None
+
+            # 验证必要的列
+            warehouse = get_col(df.iloc[0], '仓库', 'warehouse', 'Warehouse') if len(df) > 0 else None
+            sku = get_col(df.iloc[0], 'SKU', 'sku', 'Sku', 'sku_code') if len(df) > 0 else None
+            if warehouse is None or sku is None:
+                return {'success': False, 'error': '缺少必要的列: 仓库/SKU（或 warehouse/sku）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -172,16 +199,19 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
+                        warehouse_val = str(get_col(row, '仓库', 'warehouse', 'Warehouse') or '')
+                        sku_val = str(get_col(row, 'SKU', 'sku', 'Sku', 'sku_code') or '')
+                        tier_val = str(get_col(row, '档位', 'tier', 'Tier', 'tier_level') or '')
+                        freight_val = float(get_col(row, '运费', 'freight', 'Freight') or 0)
+
+                        if not warehouse_val or not sku_val:
+                            continue
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO warehouse_freight
                             (warehouse, tier, sku, freight)
                             VALUES (?, ?, ?, ?)
-                        """, (
-                            str(row['仓库']),
-                            str(row['档位']),
-                            str(row['SKU']),
-                            float(row.get('运费', 0)),
-                        ))
+                        """, (warehouse_val, tier_val, sku_val, freight_val))
                         count += 1
                     except Exception as e:
                         print(f"导入仓库运费失败: {e}")
@@ -196,10 +226,17 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
-            required_cols = ['店铺名称']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        return df_row[name]
+                return None
+
+            # 验证必要的列（支持多种列名）
+            shop_name = get_col(df.iloc[0], '店铺名称', '店铺', 'shop', 'name') if len(df) > 0 else None
+            if shop_name is None:
+                return {'success': False, 'error': '缺少必要的列: 店铺名称（或 店铺、shop）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -207,18 +244,19 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
+                        # 支持多种列名
+                        name = str(get_col(row, '店铺名称', '店铺', 'shop', 'name') or '')
+                        refund_rate = float(get_col(row, '退款率', 'refund_rate', 'refundRate') or 0)
+                        dsp_rate = float(get_col(row, 'DSP费率', 'dsp_rate', 'dspRate') or 0)
+                        return_freight_rate = float(get_col(row, '退货运费率', '退货运费', 'return_freight_rate', 'refundFreightRate') or 0)
+                        storage_rate = float(get_col(row, '仓储费率', 'storage_rate', 'storageRate') or 0)
+                        target_margin_rate = float(get_col(row, '毛利率目标', 'target_margin_rate', 'targetMarginRate') or 0.2)
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO shops
                             (name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (
-                            str(row['店铺名称']),
-                            float(row.get('退款率', 0)),
-                            float(row.get('DSP费率', 0)),
-                            float(row.get('退货运费率', 0)),
-                            float(row.get('仓储费率', 0)),
-                            float(row.get('毛利率目标', 0.2)),
-                        ))
+                        """, (name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate))
                         count += 1
                     except Exception as e:
                         print(f"导入店铺信息失败: {e}")
@@ -233,10 +271,19 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
-            required_cols = ['月份']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        val = df_row[name]
+                        if val is not None and str(val).strip():
+                            return val
+                return None
+
+            # 验证必要的列
+            month = get_col(df.iloc[0], '月份', 'month', 'Month') if len(df) > 0 else None
+            if month is None:
+                return {'success': False, 'error': '缺少必要的列: 月份（或 month）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -244,19 +291,21 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
-                        # 整体目标按 shop 维度存储（如果没指定 shop，默认用空字符串表示全店）
-                        shop = str(row.get('店铺', ''))
+                        # 支持多种列名
+                        shop = str(get_col(row, '店铺', 'shop') or '')
+                        target_sales = float(get_col(row, '销售额目标', 'targetSales', '销售额', 'target_sales') or 0)
+                        target_gross_profit = float(get_col(row, '毛利目标', 'targetGrossProfit', '毛利', 'target_gross_profit') or 0)
+                        target_margin_rate = float(get_col(row, '毛利率目标', 'targetMarginRate', '毛利率', 'target_margin_rate') or 0.2)
+                        month_val = str(get_col(row, '月份', 'month', 'Month') or '')
+
+                        if not month_val:
+                            continue
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO department_targets
                             (shop, target_sales, target_gross_profit, target_margin_rate, month)
                             VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            shop,
-                            float(row.get('销售额目标', 0)),
-                            float(row.get('毛利目标', 0)),
-                            float(row.get('毛利率目标', 0.2)),
-                            str(row['月份']),
-                        ))
+                        """, (shop, target_sales, target_gross_profit, target_margin_rate, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入整体目标失败: {e}")
@@ -271,10 +320,20 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
-            required_cols = ['月份', '运营组']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        val = df_row[name]
+                        if val is not None and str(val).strip():
+                            return val
+                return None
+
+            # 验证必要的列
+            month = get_col(df.iloc[0], '月份', 'month', 'Month') if len(df) > 0 else None
+            operator_group = get_col(df.iloc[0], '运营组', 'operatorGroup', 'operator_group') if len(df) > 0 else None
+            if month is None or operator_group is None:
+                return {'success': False, 'error': '缺少必要的列: 月份 和 运营组（或 month, operatorGroup）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -282,16 +341,19 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
+                        operator_group_val = str(get_col(row, '运营组', 'operatorGroup', 'operator_group') or '')
+                        month_val = str(get_col(row, '月份', 'month', 'Month') or '')
+                        target_sales = float(get_col(row, '销售额目标', 'targetSales', '销售额', 'target_sales') or 0)
+                        target_gross_profit = float(get_col(row, '毛利目标', 'targetGrossProfit', '毛利', 'target_gross_profit') or 0)
+
+                        if not operator_group_val or not month_val:
+                            continue
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO operator_group_targets
                             (operator_group, target_sales, target_gross_profit, month)
                             VALUES (?, ?, ?, ?)
-                        """, (
-                            str(row['运营组']),
-                            float(row.get('销售额目标', 0)),
-                            float(row.get('毛利目标', 0)),
-                            str(row['月份']),
-                        ))
+                        """, (operator_group_val, target_sales, target_gross_profit, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入运营组目标失败: {e}")
@@ -306,10 +368,20 @@ class DataImporter:
         try:
             df = self._read_file(content, filename)
 
-            required_cols = ['月份', '运营']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                return {'success': False, 'error': f'缺少必要的列: {", ".join(missing_cols)}'}
+            # 支持多种列名变体
+            def get_col(df_row, *names):
+                for name in names:
+                    if name in df_row.index:
+                        val = df_row[name]
+                        if val is not None and str(val).strip():
+                            return val
+                return None
+
+            # 验证必要的列
+            month = get_col(df.iloc[0], '月份', 'month', 'Month') if len(df) > 0 else None
+            operator = get_col(df.iloc[0], '运营', 'operator', 'Operator') if len(df) > 0 else None
+            if month is None or operator is None:
+                return {'success': False, 'error': '缺少必要的列: 月份 和 运营（或 month, operator）'}
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -317,17 +389,20 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
+                        operator_val = str(get_col(row, '运营', 'operator', 'Operator') or '')
+                        operator_group_val = str(get_col(row, '运营组', 'operatorGroup', 'operator_group') or '')
+                        month_val = str(get_col(row, '月份', 'month', 'Month') or '')
+                        target_sales = float(get_col(row, '销售额目标', 'targetSales', '销售额', 'target_sales') or 0)
+                        target_gross_profit = float(get_col(row, '毛利目标', 'targetGrossProfit', '毛利', 'target_gross_profit') or 0)
+
+                        if not operator_val or not month_val:
+                            continue
+
                         cursor.execute("""
                             INSERT OR REPLACE INTO operator_targets
                             (operator, operator_group, target_sales, target_gross_profit, month)
                             VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            str(row['运营']),
-                            str(row.get('运营组', '')),
-                            float(row.get('销售额目标', 0)),
-                            float(row.get('毛利目标', 0)),
-                            str(row['月份']),
-                        ))
+                        """, (operator_val, operator_group_val, target_sales, target_gross_profit, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入运营目标失败: {e}")
