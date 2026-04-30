@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Sidebar, Header } from '@/components/layout'
-import { FilterPanel } from '@/components/filters'
 import { DashboardPage, SpuDetailPage, DailyAnalysisPage, SettingsPage, ImportPage, TargetsPage } from '@/pages'
-import { useFilterStore, useDataStore, useNavStore, useSystemStore, useTargetStore } from '@/store'
-import type { Order, AdData } from '@/types'
+import { useNavStore } from '@/store'
 import dayjs from 'dayjs'
 
 function App() {
@@ -13,57 +11,12 @@ function App() {
   const [spuHeaderSlot, setSpuHeaderSlot] = useState<React.ReactNode>(null)
   // Dashboard 页面的 Header 右侧插槽（由 DashboardPage 管理）
   const [dashboardHeaderSlot, setDashboardHeaderSlot] = useState<React.ReactNode>(null)
-  const { filters, setFilters } = useFilterStore()
   const { currentPage, setCurrentPage } = useNavStore()
-  const { orders, adData, setOrders, setAdData, init: initDataStore } = useDataStore()
-  const { skuBaseInfo, init: initSystemStore } = useSystemStore()
-  const { init: initFilterStore } = useFilterStore()
-  const { init: initTargetStore } = useTargetStore()
 
-  // 初始化数据
+  // 初始化（简化版，不再需要预加载数据）
   useEffect(() => {
-    const init = async () => {
-      console.log('[App] Initializing data from IndexedDB...')
-      await initDataStore()
-      const { orders, adData } = useDataStore.getState()
-      console.log('[App] dataStore loaded - orders:', orders.length, ', adData:', adData.length)
-      await initSystemStore()
-      const { skuBaseInfo, shopRates } = useSystemStore.getState()
-      console.log('[App] systemStore loaded - skuBaseInfo:', skuBaseInfo.length, ', shopRates:', shopRates.length)
-      await initFilterStore()
-      await initTargetStore()
-      const { departmentTargets, operatorGroupTargets, operatorTargets } = useTargetStore.getState()
-      console.log('[App] targetStore loaded - dept:', departmentTargets.length, ', group:', operatorGroupTargets.length, ', operator:', operatorTargets.length)
-      console.log('[App] Data initialization complete')
-      setIsInitialized(true)
-    }
-    init()
+    setIsInitialized(true)
   }, [])
-
-  // 动态获取筛选选项（仅供其他页面的 FilterPanel 使用）
-  const shops = [...new Set([
-    ...orders.map(o => o.shop).filter((s): s is string => Boolean(s)),
-    ...skuBaseInfo.map(s => s.shop).filter((s): s is string => Boolean(s))
-  ])]
-  
-  const operatorGroups = [...new Set(
-    skuBaseInfo.map(s => s.operatorGroup).filter((s): s is string => Boolean(s))
-  )]
-  
-  const operators = [...new Set(
-    skuBaseInfo.map(s => s.operator).filter((s): s is string => Boolean(s))
-  )]
-
-  const handleImportOrders = (data: Order[]) => {
-    const currentOrders = useDataStore.getState().orders
-    setOrders([...currentOrders, ...data])
-  }
-
-  const handleImportAdData = (data: AdData[]) => {
-    const currentAdData = useDataStore.getState().adData
-    const mergedData = [...currentAdData, ...data]
-    setAdData(mergedData)
-  }
 
   const handleRefresh = () => {
     window.location.reload()
@@ -78,7 +31,7 @@ function App() {
       case 'analysis':
         return { title: '每日问题分析', subtitle: `${dayjs().format('YYYY-MM-DD')} 数据分析与待办事项` }
       case 'import':
-        return { title: '数据导入', subtitle: '导入订单、广告数据' }
+        return { title: '数据导入', subtitle: '导入订单、广告数据到服务器' }
       case 'targets':
         return { title: '目标设置', subtitle: '设置整体 / 运营组 / 运营三级月度目标' }
       case 'settings':
@@ -95,7 +48,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">正在加载数据...</p>
+          <p className="text-gray-600">正在加载...</p>
         </div>
       </div>
     )
@@ -124,19 +77,6 @@ function App() {
         />
 
         <main className="p-6">
-          {/* SPU 和 Dashboard 页面自己管理筛选，不渲染全局 FilterPanel */}
-          {currentPage !== 'settings' && currentPage !== 'import' && currentPage !== 'targets' && currentPage !== 'spu' && currentPage !== 'dashboard' && (
-            <div className="mb-6">
-              <FilterPanel
-                filters={filters}
-                onChange={setFilters}
-                shops={shops}
-                operatorGroups={operatorGroups}
-                operators={operators}
-              />
-            </div>
-          )}
-
           {currentPage === 'dashboard' && (
             <DashboardPage onHeaderSlotChange={setDashboardHeaderSlot} />
           )}
@@ -151,16 +91,7 @@ function App() {
 
           {currentPage === 'targets' && <TargetsPage />}
 
-          {currentPage === 'import' && (
-            <ImportPage
-              orders={orders}
-              adData={adData}
-              onImportOrders={handleImportOrders}
-              onImportAdData={handleImportAdData}
-              onClearOrders={() => useDataStore.getState().clearOrders()}
-              onClearAdData={() => useDataStore.getState().clearAdData()}
-            />
-          )}
+          {currentPage === 'import' && <ImportPage />}
         </main>
       </div>
     </div>
