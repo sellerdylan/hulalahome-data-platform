@@ -4,7 +4,7 @@
 """
 import pandas as pd
 from datetime import datetime
-from database import get_db
+from database import get_db, IS_POSTGRES
 from typing import List, Dict, Optional, Union
 from io import BytesIO
 
@@ -14,6 +14,25 @@ class DataImporter:
 
     def __init__(self):
         self.db_path = "hulalahome.db"
+
+    def _get_upsert_sql(self, table: str, columns: List[str], unique_columns: List[str]) -> str:
+        """生成 upsert SQL 语句，自动适配 PostgreSQL 和 SQLite"""
+        if IS_POSTGRES:
+            # PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+            placeholders = ', '.join(['%s'] * len(columns))
+            set_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col != unique_columns[0]])
+            return f"""
+                INSERT INTO {table} ({', '.join(columns)})
+                VALUES ({placeholders})
+                ON CONFLICT ({', '.join(unique_columns)}) DO UPDATE SET {set_clause}
+            """
+        else:
+            # SQLite: INSERT OR REPLACE
+            placeholders = ', '.join(['?'] * len(columns))
+            return f"""
+                INSERT OR REPLACE INTO {table} ({', '.join(columns)})
+                VALUES ({placeholders})
+            """
 
     def _read_file(self, content: Union[bytes, str], filename: str = ""):
         """根据文件类型读取数据"""
@@ -48,11 +67,9 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO orders
-                            (date, shop, order_id, sku, quantity, sales_amount, cost, warehouse, commission)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
+                        columns = ['date', 'shop', 'order_id', 'sku', 'quantity', 'sales_amount', 'cost', 'warehouse', 'commission']
+                        sql = self._get_upsert_sql('orders', columns, ['date', 'order_id', 'sku'])
+                        cursor.execute(sql, (
                             str(row['日期']),
                             str(row['店铺']),
                             str(row['订单号']),
@@ -89,11 +106,9 @@ class DataImporter:
 
                 for _, row in df.iterrows():
                     try:
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO ad_data
-                            (date, shop, spu, ad_spend)
-                            VALUES (?, ?, ?, ?)
-                        """, (
+                        columns = ['date', 'shop', 'spu', 'ad_spend']
+                        sql = self._get_upsert_sql('ad_data', columns, ['date', 'shop', 'spu'])
+                        cursor.execute(sql, (
                             str(row['日期']),
                             str(row['店铺']),
                             str(row['SPU']),
@@ -142,13 +157,11 @@ class DataImporter:
                         if not shop_val or not sku_val or not spu_val:
                             continue
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO sku_base_info
-                            (shop, sku, asin, spu, lifecycle, sales_grade, category,
-                             product_level, operator, operator_group, refund_rate,
-                             cg_freight, pl_freight, fedex_freight)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
+                        columns = ['shop', 'sku', 'asin', 'spu', 'lifecycle', 'sales_grade', 'category',
+                                   'product_level', 'operator', 'operator_group', 'refund_rate',
+                                   'cg_freight', 'pl_freight', 'fedex_freight']
+                        sql = self._get_upsert_sql('sku_base_info', columns, ['shop', 'sku'])
+                        cursor.execute(sql, (
                             shop_val,
                             sku_val,
                             str(get_col(row, 'ASIN', 'asin', 'Asin') or ''),
@@ -207,11 +220,9 @@ class DataImporter:
                         if not warehouse_val or not sku_val:
                             continue
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO warehouse_freight
-                            (warehouse, tier, sku, freight)
-                            VALUES (?, ?, ?, ?)
-                        """, (warehouse_val, tier_val, sku_val, freight_val))
+                        columns = ['warehouse', 'tier', 'sku', 'freight']
+                        sql = self._get_upsert_sql('warehouse_freight', columns, ['warehouse', 'tier', 'sku'])
+                        cursor.execute(sql, (warehouse_val, tier_val, sku_val, freight_val))
                         count += 1
                     except Exception as e:
                         print(f"导入仓库运费失败: {e}")
@@ -252,11 +263,9 @@ class DataImporter:
                         storage_rate = float(get_col(row, '仓储费率', 'storage_rate', 'storageRate') or 0)
                         target_margin_rate = float(get_col(row, '毛利率目标', 'target_margin_rate', 'targetMarginRate') or 0.2)
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO shops
-                            (name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate))
+                        columns = ['name', 'refund_rate', 'dsp_rate', 'return_freight_rate', 'storage_rate', 'target_margin_rate']
+                        sql = self._get_upsert_sql('shops', columns, ['name'])
+                        cursor.execute(sql, (name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate))
                         count += 1
                     except Exception as e:
                         print(f"导入店铺信息失败: {e}")
@@ -301,11 +310,9 @@ class DataImporter:
                         if not month_val:
                             continue
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO department_targets
-                            (shop, target_sales, target_gross_profit, target_margin_rate, month)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (shop, target_sales, target_gross_profit, target_margin_rate, month_val))
+                        columns = ['shop', 'target_sales', 'target_gross_profit', 'target_margin_rate', 'month']
+                        sql = self._get_upsert_sql('department_targets', columns, ['shop', 'month'])
+                        cursor.execute(sql, (shop, target_sales, target_gross_profit, target_margin_rate, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入整体目标失败: {e}")
@@ -349,11 +356,9 @@ class DataImporter:
                         if not operator_group_val or not month_val:
                             continue
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO operator_group_targets
-                            (operator_group, target_sales, target_gross_profit, month)
-                            VALUES (?, ?, ?, ?)
-                        """, (operator_group_val, target_sales, target_gross_profit, month_val))
+                        columns = ['operator_group', 'target_sales', 'target_gross_profit', 'month']
+                        sql = self._get_upsert_sql('operator_group_targets', columns, ['operator_group', 'month'])
+                        cursor.execute(sql, (operator_group_val, target_sales, target_gross_profit, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入运营组目标失败: {e}")
@@ -398,11 +403,9 @@ class DataImporter:
                         if not operator_val or not month_val:
                             continue
 
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO operator_targets
-                            (operator, operator_group, target_sales, target_gross_profit, month)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (operator_val, operator_group_val, target_sales, target_gross_profit, month_val))
+                        columns = ['operator', 'operator_group', 'target_sales', 'target_gross_profit', 'month']
+                        sql = self._get_upsert_sql('operator_targets', columns, ['operator', 'month'])
+                        cursor.execute(sql, (operator_val, operator_group_val, target_sales, target_gross_profit, month_val))
                         count += 1
                     except Exception as e:
                         print(f"导入运营目标失败: {e}")
