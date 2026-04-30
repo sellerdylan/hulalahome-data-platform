@@ -345,7 +345,7 @@ async def get_dashboard_summary(
 
         # 获取店铺参数（退款率、DSP费率等）
         cursor.execute("SELECT name, refund_rate, dsp_rate, return_freight_rate, storage_rate, target_margin_rate FROM shops")
-        shop_params = {row['name"]: row for row in cursor.fetchall()}
+        shop_params = {row['name']: row for row in cursor.fetchall()}
 
         # 计算汇总
         result = []
@@ -460,7 +460,7 @@ async def get_spu_list(
 
         # 获取店铺参数
         cursor.execute("SELECT name, refund_rate, dsp_rate, return_freight_rate, storage_rate FROM shops")
-        shop_params = {row['name"]: row for row in cursor.fetchall()}
+        shop_params = {row['name']: row for row in cursor.fetchall()}
 
         # 计算毛利
         for spu in spus:
