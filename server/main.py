@@ -128,6 +128,28 @@ async def debug_db_check():
         return {"success": False, "error": str(e)}
 
 
+@app.post("/api/debug/test-import")
+async def debug_test_import(file: UploadFile = File(...)):
+    """测试导入 - 打印解析结果"""
+    content = await file.read()
+    
+    # 尝试解析 CSV
+    from io import BytesIO
+    import pandas as pd
+    
+    try:
+        df = pd.read_csv(BytesIO(content))
+        return {
+            "success": True,
+            "filename": file.filename,
+            "rows": len(df),
+            "columns": list(df.columns),
+            "first_row": df.iloc[0].to_dict() if len(df) > 0 else None
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ==================== 店铺管理 ====================
 
 @app.get("/api/shops")
