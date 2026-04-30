@@ -3,16 +3,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Railway 的 Root Directory = server
-# 所以构建上下文是 server/ 目录
-# Dockerfile 在根目录，但构建时从 server/ 开始
-
-# 复制 requirements.txt（在 server/ 目录下）
-COPY requirements.txt .
+# Railway Root Directory 为空，构建上下文是整个项目
+# 复制后端代码和依赖
+COPY server/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制应用代码
-COPY . ./server/
+COPY server/ ./server/
 
 # 切换到 server 目录运行
 WORKDIR /app/server
