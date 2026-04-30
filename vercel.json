@@ -26,7 +26,7 @@
   "rewrites": [
     {
       "source": "/api/proxy/(.*)",
-      "destination": "https://your-railway-app.up.railway.app/api/$1"
+      "destination": "https://hulalahome-data-platform-production.up.railway.app/api/$1"
     }
   ]
 }

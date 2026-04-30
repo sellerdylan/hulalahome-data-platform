@@ -18,6 +18,11 @@ import type {
 // API 配置
 // ============================================
 const getBaseUrl = () => {
+  // 生产环境（Vercel部署）使用Railway后端
+  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
+    return 'https://hulalahome-data-platform-production.up.railway.app'
+  }
+  // 本地开发环境
   return import.meta.env.VITE_API_URL || 'http://localhost:8000'
 }
 
