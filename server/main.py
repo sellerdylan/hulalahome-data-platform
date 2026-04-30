@@ -99,6 +99,35 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
+@app.get("/api/debug/db-check")
+async def debug_db_check():
+    """数据库调试端点"""
+    from database import IS_POSTGRES, get_connection
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # 检查各表记录数
+        tables = ['shops', 'sku_base_info', 'orders', 'ad_data', 'warehouse_freight', 'sku_refund_rates']
+        counts = {}
+        for table in tables:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                counts[table] = cursor.fetchone().get('count', 0)
+            except Exception as e:
+                counts[table] = f"Error: {str(e)}"
+        
+        conn.close()
+        return {
+            "success": True,
+            "is_postgres": IS_POSTGRES,
+            "database_url_set": bool(os.getenv("DATABASE_URL")),
+            "table_counts": counts
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ==================== 店铺管理 ====================
 
 @app.get("/api/shops")
