@@ -23,19 +23,25 @@ function App() {
   // 初始化数据
   useEffect(() => {
     const init = async () => {
-      console.log('[App] Initializing data from IndexedDB...')
-      await initDataStore()
-      const { orders, adData } = useDataStore.getState()
-      console.log('[App] dataStore loaded - orders:', orders.length, ', adData:', adData.length)
-      await initSystemStore()
-      const { skuBaseInfo, shopRates } = useSystemStore.getState()
-      console.log('[App] systemStore loaded - skuBaseInfo:', skuBaseInfo.length, ', shopRates:', shopRates.length)
-      await initFilterStore()
-      await initTargetStore()
-      const { departmentTargets, operatorGroupTargets, operatorTargets } = useTargetStore.getState()
-      console.log('[App] targetStore loaded - dept:', departmentTargets.length, ', group:', operatorGroupTargets.length, ', operator:', operatorTargets.length)
-      console.log('[App] Data initialization complete')
-      setIsInitialized(true)
+      try {
+        console.log('[App] Initializing data from IndexedDB...')
+        await initDataStore()
+        const { orders, adData } = useDataStore.getState()
+        console.log('[App] dataStore loaded - orders:', orders.length, ', adData:', adData.length)
+        await initSystemStore()
+        const { skuBaseInfo, shopRates } = useSystemStore.getState()
+        console.log('[App] systemStore loaded - skuBaseInfo:', skuBaseInfo.length, ', shopRates:', shopRates.length)
+        await initFilterStore()
+        await initTargetStore()
+        const { departmentTargets, operatorGroupTargets, operatorTargets } = useTargetStore.getState()
+        console.log('[App] targetStore loaded - dept:', departmentTargets.length, ', group:', operatorGroupTargets.length, ', operator:', operatorTargets.length)
+        console.log('[App] Data initialization complete')
+        setIsInitialized(true)
+      } catch (error) {
+        console.error('[App] Initialization error:', error)
+        // 即使出错也允许进入页面，避免一直卡在加载状态
+        setIsInitialized(true)
+      }
     }
     init()
   }, [])
