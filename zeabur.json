@@ -1,0 +1,21 @@
+{
+  "$schema": "https://xZeabur.github.io/zeabur-config/schema.json",
+  "project": "hulalahome-data-platform",
+  "services": [
+    {
+      "name": "backend",
+      "path": "server",
+      "build": {
+        "command": "pip install -r requirements.txt",
+        "interpreter": "python3"
+      },
+      "start": {
+        "command": "uvicorn main:app --host 0.0.0.0 --port 8000"
+      },
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}",
+        "PORT": "8000"
+      }
+    }
+  ]
+}

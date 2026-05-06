@@ -47,6 +47,8 @@ class DictCursor:
         """执行 SQL，自动转换占位符"""
         if self._is_postgres and '?' in sql:
             sql = sql.replace('?', '%s')
+        if params is None:
+            return self._cursor.execute(sql)
         return self._cursor.execute(sql, params)
 
     def executemany(self, sql: str, params_list: List[tuple]):
@@ -169,16 +171,16 @@ def init_database():
     cursor = conn.cursor()
     try:
         if IS_POSTGRES:
-            # PostgreSQL 语法
+            # PostgreSQL 语法 - 使用 NUMERIC 替代 DOUBLE PRECISION（避免拼写问题）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS shops (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) UNIQUE NOT NULL,
-                    refund_rate DOUBLE PRECISION DEFAULT 0,
-                    dsp_rate DOUBLE PRECISION DEFAULT 0,
-                    return_freight_rate DOUBLE PRECISION DEFAULT 0,
-                    storage_rate DOUBLE PRECISION DEFAULT 0,
-                    target_margin_rate DOUBLE PRECISION DEFAULT 0.2,
+                    refund_rate NUMERIC DEFAULT 0,
+                    dsp_rate NUMERIC DEFAULT 0,
+                    return_freight_rate NUMERIC DEFAULT 0,
+                    storage_rate NUMERIC DEFAULT 0,
+                    target_margin_rate NUMERIC DEFAULT 0.2,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -196,10 +198,10 @@ def init_database():
                     product_level VARCHAR(255),
                     operator VARCHAR(255),
                     operator_group VARCHAR(255),
-                    refund_rate DOUBLE PRECISION,
-                    cg_freight DOUBLE PRECISION DEFAULT 0,
-                    pl_freight DOUBLE PRECISION DEFAULT 0,
-                    fedex_freight DOUBLE PRECISION DEFAULT 0,
+                    refund_rate NUMERIC,
+                    cg_freight NUMERIC DEFAULT 0,
+                    pl_freight NUMERIC DEFAULT 0,
+                    fedex_freight NUMERIC DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(shop, sku)
@@ -213,10 +215,10 @@ def init_database():
                     order_id VARCHAR(255) NOT NULL,
                     sku VARCHAR(255) NOT NULL,
                     quantity INTEGER DEFAULT 1,
-                    sales_amount DOUBLE PRECISION DEFAULT 0,
-                    cost DOUBLE PRECISION DEFAULT 0,
+                    sales_amount NUMERIC DEFAULT 0,
+                    cost NUMERIC DEFAULT 0,
                     warehouse VARCHAR(255),
-                    commission DOUBLE PRECISION DEFAULT 0,
+                    commission NUMERIC DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(date, order_id, sku)
                 )
@@ -227,7 +229,7 @@ def init_database():
                     date VARCHAR(50) NOT NULL,
                     shop VARCHAR(255) NOT NULL,
                     spu VARCHAR(255) NOT NULL,
-                    ad_spend DOUBLE PRECISION DEFAULT 0,
+                    ad_spend NUMERIC DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(date, shop, spu)
                 )
@@ -238,7 +240,7 @@ def init_database():
                     warehouse VARCHAR(255) NOT NULL,
                     tier VARCHAR(50) NOT NULL,
                     sku VARCHAR(255) NOT NULL,
-                    freight DOUBLE PRECISION DEFAULT 0,
+                    freight NUMERIC DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(warehouse, tier, sku)
@@ -250,8 +252,8 @@ def init_database():
                     type VARCHAR(50) NOT NULL,
                     target_id VARCHAR(255) NOT NULL,
                     target_name VARCHAR(255) NOT NULL,
-                    target_gmv DOUBLE PRECISION DEFAULT 0,
-                    target_margin_rate DOUBLE PRECISION DEFAULT 0.2,
+                    target_gmv NUMERIC DEFAULT 0,
+                    target_margin_rate NUMERIC DEFAULT 0.2,
                     month VARCHAR(50) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -267,9 +269,9 @@ def init_database():
                 CREATE TABLE IF NOT EXISTS department_targets (
                     id SERIAL PRIMARY KEY,
                     shop VARCHAR(255) NOT NULL,
-                    target_sales DOUBLE PRECISION DEFAULT 0,
-                    target_gross_profit DOUBLE PRECISION DEFAULT 0,
-                    target_margin_rate DOUBLE PRECISION DEFAULT 0.2,
+                    target_sales NUMERIC DEFAULT 0,
+                    target_gross_profit NUMERIC DEFAULT 0,
+                    target_margin_rate NUMERIC DEFAULT 0.2,
                     month VARCHAR(50) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -280,8 +282,8 @@ def init_database():
                 CREATE TABLE IF NOT EXISTS operator_group_targets (
                     id SERIAL PRIMARY KEY,
                     operator_group VARCHAR(255) NOT NULL,
-                    target_sales DOUBLE PRECISION DEFAULT 0,
-                    target_gross_profit DOUBLE PRECISION DEFAULT 0,
+                    target_sales NUMERIC DEFAULT 0,
+                    target_gross_profit NUMERIC DEFAULT 0,
                     month VARCHAR(50) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -293,8 +295,8 @@ def init_database():
                     id SERIAL PRIMARY KEY,
                     operator VARCHAR(255) NOT NULL,
                     operator_group VARCHAR(255),
-                    target_sales DOUBLE PRECISION DEFAULT 0,
-                    target_gross_profit DOUBLE PRECISION DEFAULT 0,
+                    target_sales NUMERIC DEFAULT 0,
+                    target_gross_profit NUMERIC DEFAULT 0,
                     month VARCHAR(50) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

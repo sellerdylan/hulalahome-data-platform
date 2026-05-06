@@ -538,10 +538,30 @@ async def get_orders():
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT date, shop, order_id, sku, quantity, sales_amount as sales, cost, warehouse, commission
+            SELECT id, date, shop, order_id, sku, quantity, sales_amount, cost, warehouse, commission
             FROM orders ORDER BY date DESC
         """)
-        orders = cursor.fetchall()
+        rows = cursor.fetchall()
+        orders = []
+        for row in rows:
+            # 统一转换为前端期望的 camelCase 字段名
+            date_str = str(row.get('date', ''))
+            # 截断时间戳部分，只保留 YYYY-MM-DD
+            if len(date_str) > 10:
+                date_str = date_str[:10]
+            orders.append({
+                'id': str(row.get('id', '')),
+                'date': date_str,
+                'shop': row.get('shop', ''),
+                'orderId': row.get('order_id', ''),
+                'sku': row.get('sku', ''),
+                'spu': row.get('sku', ''),  # 后端没存 spu，临时用 sku 代替
+                'quantity': row.get('quantity', 0),
+                'sales': row.get('sales_amount', 0),
+                'cost': row.get('cost', 0),
+                'commission': row.get('commission', 0),
+                'warehouse': row.get('warehouse', ''),
+            })
         return {"success": True, "data": orders}
 
 
@@ -551,10 +571,22 @@ async def get_ad_data():
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT date, shop, spu, ad_spend as adSpend
+            SELECT id, date, shop, spu, ad_spend
             FROM ad_data ORDER BY date DESC
         """)
-        ads = cursor.fetchall()
+        rows = cursor.fetchall()
+        ads = []
+        for row in rows:
+            date_str = str(row.get('date', ''))
+            if len(date_str) > 10:
+                date_str = date_str[:10]
+            ads.append({
+                'id': str(row.get('id', '')),
+                'date': date_str,
+                'shop': row.get('shop', ''),
+                'spu': row.get('spu', ''),
+                'adSpend': row.get('ad_spend', 0),
+            })
         return {"success": True, "data": ads}
 
 

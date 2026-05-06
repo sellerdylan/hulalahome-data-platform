@@ -225,69 +225,81 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
   
   init: async () => {
     set({ isLoading: true })
+    
+    // 先从 IndexedDB 预加载（保底）
+    await preloadFromIndexedDB()
+    const cachedSkuBaseInfo = getCached<SkuBaseInfo[]>('hulalahome_sku_base_info', [])
+    const cachedShopRates = getCached<ShopRate[]>('hulalahome_shop_rates', [])
+    const cachedSkuFreights = getCached<SkuFreight[]>('hulalahome_sku_freights', [])
+    const cachedSkuRefundRates = getCached<SkuRefundRate[]>('hulalahome_sku_refund_rates', [])
+
     try {
       // 优先从后端 API 加载数据（实现数据共享）
-      const [shopRates, skuBaseInfo, targets] = await Promise.all([
+      const [shopRatesRaw, skuBaseInfoRaw, targets] = await Promise.all([
         getShopsData(),
         getSkuBaseInfo(),
         getAllTargets(),
       ])
-      console.log('[SystemStore] Loaded from backend:', shopRates.length, 'shops,', skuBaseInfo.length, 'SKU info')
-      
-      // 分离 SKU 运费（从 sku_base_info 中提取，后端已转换字段名）
-      const skuFreights: SkuFreight[] = skuBaseInfo.map(info => ({
-        id: `${info.shop}-${info.sku}`,
-        shop: info.shop,
-        sku: info.sku,
-        cgFreight: (info as any).cgFreight || (info as any).cg_freight || 0,
-        plFreight: (info as any).plFreight || (info as any).pl_freight || 0,
-        // 后端返回 fedexFreight，前端类型期望 selfFreight，做兼容映射
-        selfFreight: (info as any).selfFreight || (info as any).fedexFreight || (info as any).fedex_freight || 0,
-      }))
-      
+      console.log('[SystemStore] Loaded from backend:', shopRatesRaw.length, 'shops,', skuBaseInfoRaw.length, 'SKU info')
+
       // 转换店铺数据格式（兼容后端返回的数据）
-      const convertedShopRates: ShopRate[] = (shopRates as any[]).map((shop: any) => ({
+      const convertedShopRates: ShopRate[] = (shopRatesRaw as any[]).map((shop: any) => ({
         id: String(shop.id || shop.shopId || Math.random().toString(36).substring(2, 11)),
         shop: shop.shop || shop.name || '',
         dspRate: shop.dspRate || shop.dsp_rate || 0,
         refundFreightRate: shop.refundFreightRate || shop.return_freight_rate || 0,
         storageRate: shop.storageRate || shop.storage_rate || 0,
       }))
-      
-      const skuRefundRates: SkuRefundRate[] = skuBaseInfo
+
+      // 分离 SKU 运费（从 sku_base_info 中提取）
+      const backendSkuFreights: SkuFreight[] = skuBaseInfoRaw.map((info: any) => ({
+        id: `${info.shop}-${info.sku}`,
+        shop: info.shop,
+        sku: info.sku,
+        cgFreight: info.cgFreight || info.cg_freight || 0,
+        plFreight: info.plFreight || info.pl_freight || 0,
+        selfFreight: info.selfFreight || info.fedexFreight || info.fedex_freight || 0,
+      }))
+
+      const backendSkuRefundRates: SkuRefundRate[] = (skuBaseInfoRaw as any[])
         .filter(info => {
-          const rate = (info as any).refundRate || (info as any).refund_rate
-          return rate !== undefined && rate !== null && rate !== ''
+          const rate = info.refundRate ?? info.refund_rate
+          return rate !== undefined && rate !== null && rate !== '' && rate !== 0
         })
         .map(info => ({
           id: `${info.shop}-${info.sku}`,
           shop: info.shop,
           sku: info.sku,
-          refundRate: (info as any).refundRate || (info as any).refund_rate || 0,
+          refundRate: info.refundRate ?? info.refund_rate ?? 0,
         }))
-      
+
+      // 如果后端返回空，使用 IndexedDB 缓存（避免空数据覆盖已有数据）
+      const finalShopRates = convertedShopRates.length > 0 ? convertedShopRates : cachedShopRates
+      const finalSkuBaseInfo = skuBaseInfoRaw.length > 0 ? skuBaseInfoRaw : cachedSkuBaseInfo
+      const finalSkuFreights = backendSkuFreights.length > 0 ? backendSkuFreights : cachedSkuFreights
+      const finalSkuRefundRates = backendSkuRefundRates.length > 0 ? backendSkuRefundRates : cachedSkuRefundRates
+
       set({
-        shopRates: convertedShopRates,
-        skuFreights,
-        skuRefundRates,
-        skuBaseInfo,
+        shopRates: finalShopRates,
+        skuFreights: finalSkuFreights,
+        skuRefundRates: finalSkuRefundRates,
+        skuBaseInfo: finalSkuBaseInfo,
         isLoading: false,
       })
-      
-      // 同时更新 TargetStore（因为都在一个 API 返回里）
+
+      // 同时更新 TargetStore
       const { setDepartmentTargets, setOperatorGroupTargets, setOperatorTargets } = useTargetStore.getState()
       setDepartmentTargets(targets.departmentTargets)
       setOperatorGroupTargets(targets.operatorGroupTargets)
       setOperatorTargets(targets.operatorTargets)
     } catch (e) {
       console.warn('[SystemStore] Failed to load from backend, falling back to IndexedDB:', e)
-      // 降级：从 IndexedDB 加载
-      await preloadFromIndexedDB()
+      // 降级：使用 IndexedDB 缓存
       set({
-        shopRates: getCached<ShopRate[]>('hulalahome_shop_rates', []),
-        skuFreights: getCached<SkuFreight[]>('hulalahome_sku_freights', []),
-        skuRefundRates: getCached<SkuRefundRate[]>('hulalahome_sku_refund_rates', []),
-        skuBaseInfo: getCached<SkuBaseInfo[]>('hulalahome_sku_base_info', []),
+        shopRates: cachedShopRates,
+        skuFreights: cachedSkuFreights,
+        skuRefundRates: cachedSkuRefundRates,
+        skuBaseInfo: cachedSkuBaseInfo,
         isLoading: false,
       })
     }
@@ -335,21 +347,29 @@ export const useDataStore = create<DataStore>((set) => ({
   
   init: async () => {
     set({ isLoading: true })
+    
+    // 先从 IndexedDB 预加载（保底）
+    await preloadFromIndexedDB()
+    const cachedOrders = getCached<Order[]>('hulalahome_orders', [])
+    const cachedAdData = getCached<AdData[]>('hulalahome_ad_data', [])
+
     try {
       // 优先从后端 API 加载数据（实现数据共享）
-      const [orders, adData] = await Promise.all([
+      const [backendOrders, backendAdData] = await Promise.all([
         getOrders(),
         getAdData(),
       ])
-      console.log('[DataStore] Loaded from backend:', orders.length, 'orders,', adData.length, 'ad data')
-      set({ orders, adData, isLoading: false })
+      console.log('[DataStore] Loaded from backend:', backendOrders.length, 'orders,', backendAdData.length, 'ad data')
+      
+      // 如果后端返回空，回退到 IndexedDB 数据（避免空数据覆盖）
+      const finalOrders = backendOrders.length > 0 ? backendOrders : cachedOrders
+      const finalAdData = backendAdData.length > 0 ? backendAdData : cachedAdData
+      set({ orders: finalOrders, adData: finalAdData, isLoading: false })
     } catch (e) {
       console.warn('[DataStore] Failed to load from backend, falling back to IndexedDB:', e)
-      // 降级：从 IndexedDB 加载
-      await preloadFromIndexedDB()
       set({
-        orders: getCached<Order[]>('hulalahome_orders', []),
-        adData: getCached<AdData[]>('hulalahome_ad_data', []),
+        orders: cachedOrders,
+        adData: cachedAdData,
         isLoading: false,
       })
     }
