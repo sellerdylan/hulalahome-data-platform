@@ -2,18 +2,9 @@
   "$schema": "https://railway.app/schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "runtime": "python",
-      "install": {
-        "command": "cd server && pip install --no-cache-dir -r requirements.txt"
-      },
-      "start": {
-        "command": "cd server && uvicorn main:app --host 0.0.0.0 --port $PORT"
-      }
+    "nixpacksConfig": {
+      "buildCommand": "cd server && pip install -r requirements.txt",
+      "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT"
     }
-  },
-  "deploy": {
-    "region": "us-east",
-    "numReplicas": 1
   }
 }
