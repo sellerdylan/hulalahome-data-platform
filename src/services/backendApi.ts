@@ -18,12 +18,16 @@ import type {
 // API 配置
 // ============================================
 const getBaseUrl = () => {
-  // 生产环境（Vercel部署）使用Railway后端
-  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
-    return 'https://hulalahome-data-platform-production.up.railway.app'
+  // 优先使用环境变量（Vercel 部署时在环境变量中配置）
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
   }
   // 本地开发环境
-  return import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  if (window.location.hostname === 'localhost') {
+    return 'http://localhost:8000'
+  }
+  // 生产环境兜底（Vercel 部署时的默认后端地址）
+  return 'https://hulalahome-data-platform-production-b09f.up.railway.app'
 }
 
 const getHeaders = () => ({

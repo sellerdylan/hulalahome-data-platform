@@ -29,6 +29,11 @@ import type {
 } from '@/types'
 
 const isOnlineMode = () => {
+  // 生产环境或非 localhost 时，认为是在线模式
+  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
+    return true
+  }
+  // 本地开发环境，检查是否配置了 API URL
   return import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== ''
 }
 
