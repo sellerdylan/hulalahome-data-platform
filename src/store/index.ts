@@ -144,6 +144,36 @@ interface FilterStore {
   setFilters: (filters: Partial<FilterState>) => void
   resetFilters: () => void
   init: () => Promise<void>
+  // SPU页面日期筛选器（持久化到 localStorage）
+  spuDateFilter: {
+    mode: 'months' | 'range'
+    selectedMonths: string[]
+    startDate: string
+    endDate: string
+  }
+  setSpuDateFilter: (filter: FilterStore['spuDateFilter']) => void
+}
+
+const initialSpuDateFilter = {
+  mode: 'months' as const,
+  selectedMonths: [dayjs().format('YYYY-MM')],
+  startDate: '',
+  endDate: '',
+}
+
+interface FilterStore {
+  filters: FilterState
+  setFilters: (filters: Partial<FilterState>) => void
+  resetFilters: () => void
+  init: () => Promise<void>
+  // SPU页面日期筛选器（持久化到 localStorage）
+  spuDateFilter: {
+    mode: 'months' | 'range'
+    selectedMonths: string[]
+    startDate: string
+    endDate: string
+  }
+  setSpuDateFilter: (filter: FilterStore['spuDateFilter']) => void
 }
 
 export const useFilterStore = create<FilterStore>((set) => ({
@@ -153,7 +183,30 @@ export const useFilterStore = create<FilterStore>((set) => ({
       filters: { ...state.filters, ...newFilters },
     })),
   resetFilters: () => set({ filters: initialFilters }),
+  spuDateFilter: initialSpuDateFilter,
+  setSpuDateFilter: (filter) => {
+    // 同时保存到 localStorage
+    try {
+      localStorage.setItem('hulalahome_spu_date_filter', JSON.stringify(filter))
+    } catch (e) {
+      console.warn('[FilterStore] Failed to save spuDateFilter to localStorage:', e)
+    }
+    set({ spuDateFilter: filter })
+  },
   init: async () => {
+    // 从 localStorage 恢复 SPU 日期筛选器
+    try {
+      const saved = localStorage.getItem('hulalahome_spu_date_filter')
+      if (saved) {
+        const filter = JSON.parse(saved)
+        // 验证数据格式
+        if (filter && typeof filter.mode === 'string') {
+          set({ spuDateFilter: filter })
+        }
+      }
+    } catch (e) {
+      console.warn('[FilterStore] Failed to restore spuDateFilter:', e)
+    }
     await preloadFromIndexedDB()
   },
 }))

@@ -224,6 +224,29 @@ class DataImporter:
                         sql = self._get_upsert_sql('warehouse_freight', columns, ['warehouse', 'tier', 'sku'])
                         cursor.execute(sql, (warehouse_val, tier_val, sku_val, freight_val))
                         count += 1
+
+                        # 同时更新 sku_base_info 表中的运费字段
+                        # 支持的仓库类型映射
+                        freight_field_map = {
+                            'CG': 'cg_freight',
+                            'CastleGate': 'cg_freight',
+                            'castlegate': 'cg_freight',
+                            'KH-US-CastleGate': 'cg_freight',
+                            '3PL': 'pl_freight',
+                            '3pl': 'pl_freight',
+                            'FBA': 'pl_freight',
+                            'fba': 'pl_freight',
+                            'Fedex': 'fedex_freight',
+                            'fedex': 'fedex_freight',
+                            '自运费': 'fedex_freight',
+                            '自运': 'fedex_freight',
+                        }
+                        freight_col = freight_field_map.get(warehouse_val)
+                        if freight_col and freight_val > 0:
+                            # 更新 sku_base_info 表中对应 SKU 的运费字段
+                            update_sql = f"UPDATE sku_base_info SET {freight_col} = ? WHERE sku = ?"
+                            cursor.execute(update_sql, (freight_val, sku_val))
+
                     except Exception as e:
                         print(f"导入仓库运费失败: {e}")
                         continue

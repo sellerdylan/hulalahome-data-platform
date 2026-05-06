@@ -200,59 +200,53 @@ export function SpuTable({
       </div>
 
       {/* 表格容器：固定高度，内部独立滚动 */}
-      <div className="border rounded-lg flex flex-col" style={{ height: 'calc(100vh - 380px)', minHeight: 400 }}>
-        {/* 表头固定 */}
-        <div className="overflow-x-auto flex-shrink-0">
+      <div className="border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 380px)', minHeight: 400 }}>
+        {/* 使用单个 Table + sticky header 方案 */}
+        <div className="overflow-auto h-full">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-gray-50">
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[130px] sticky left-0 bg-gray-50 z-10">
+                <TableHead className="w-[130px]">
                   <SortHeader field="spu">SPU</SortHeader>
                 </TableHead>
                 <TableHead className="w-[130px]">店铺</TableHead>
                 <TableHead className="w-[80px]">运营</TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalSales">销售额</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalCost">成本</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalCommission">佣金</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalAdSpend">广告费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalRefund">退款费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalFreight">运费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalStorage">仓储费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalDsp">DSP费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[100px]">
                   <SortHeader field="totalReturnFreight">退货运费</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[80px]">
                   <SortHeader field="grossMarginRate">毛利率</SortHeader>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-right w-[60px]">
                   <SortHeader field="orderCount">订单</SortHeader>
                 </TableHead>
-                <TableHead>状态</TableHead>
+                <TableHead className="w-[60px]">状态</TableHead>
               </TableRow>
             </TableHeader>
-          </Table>
-        </div>
-
-        {/* 表体：独立滚动区域 */}
-        <div className="overflow-auto flex-1">
-          <Table>
             <TableBody>
               {pagedData.length === 0 ? (
                 <TableRow>
@@ -267,7 +261,7 @@ export function SpuTable({
                     className="group cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => onRowClick?.(item)}
                   >
-                    <TableCell className="font-medium w-[130px] sticky left-0 bg-white group-hover:bg-blue-50">
+                    <TableCell className="font-medium w-[130px]">
                       <span className="text-blue-600 hover:underline">{item.spu}</span>
                     </TableCell>
                     <TableCell className="text-sm text-gray-600 w-[130px]">{item.shop}</TableCell>
@@ -277,51 +271,51 @@ export function SpuTable({
                         <div className="text-xs text-gray-400 leading-tight">{item.operatorGroup}</div>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right font-mono w-[100px]">
                       ${item.totalSales.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-red-600">${item.totalCost.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalCost / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-orange-600">${item.totalCommission.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalCommission / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className={cn("font-mono", item.totalAdSpend > 0 ? "text-purple-600" : "text-gray-400")}>${item.totalAdSpend.toFixed(2)}</div>
                       <div className="text-xs text-gray-400">{(item.totalAdSpend / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-yellow-600">${item.totalRefund.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalRefund / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-cyan-600">${item.totalFreight.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalFreight / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-indigo-600">${item.totalStorage.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalStorage / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-pink-600">${item.totalDsp.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalDsp / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[100px]">
                       <div className="font-mono text-amber-600">${item.totalReturnFreight.toFixed(0)}</div>
                       <div className="text-xs text-gray-400">{(item.totalReturnFreight / Math.max(item.totalSales, 1) * 100).toFixed(1)}%</div>
                     </TableCell>
                     <TableCell className={cn(
-                      "text-right font-mono font-medium",
+                      "text-right font-mono font-medium w-[80px]",
                       item.grossMarginRate >= 0.2 ? "text-green-600" :
                       item.grossMarginRate >= 0.15 ? "text-yellow-600" :
                       "text-red-600"
                     )}>
                       {(item.grossMarginRate * 100).toFixed(1)}%
                     </TableCell>
-                    <TableCell className="text-right">{item.orderCount}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right w-[60px]">{item.orderCount}</TableCell>
+                    <TableCell className="w-[60px]">
                       <Badge variant={item.isOnTarget ? "success" : "danger"}>
                         {item.isOnTarget ? '✓' : '✗'}
                       </Badge>

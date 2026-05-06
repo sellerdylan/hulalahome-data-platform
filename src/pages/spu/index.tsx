@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { SpuTable } from '@/components/data/SpuTable'
 import { SpuDetailDrawer } from '@/components/data/SpuDetailDrawer'
 import { SpuDateFilter, type SpuDateFilterValue } from '@/components/filters/SpuDateFilter'
-import { useDataStore, useSystemStore } from '@/store'
+import { useDataStore, useSystemStore, useFilterStore } from '@/store'
 import type { SpuSummary } from '@/types'
 import { WAREHOUSE_FREIGHT_TYPE } from '@/types'
 import { formatCurrency, toDateString } from '@/lib/utils'
@@ -33,14 +33,10 @@ interface SpuDetailPageProps {
 export function SpuDetailPage({ onHeaderSlotChange }: SpuDetailPageProps) {
   const { orders, adData } = useDataStore()
   const { shopRates, skuFreights, skuRefundRates, skuBaseInfo } = useSystemStore()
+  const { spuDateFilter: initialFilter, setSpuDateFilter } = useFilterStore()
 
-  // ---- 日期筛选器状态 ----
-  const [dateFilter, setDateFilter] = useState<SpuDateFilterValue>({
-    mode: 'months',
-    selectedMonths: [dayjs().format('YYYY-MM')],
-    startDate: '',
-    endDate: '',
-  })
+  // ---- 日期筛选器状态（从 store 恢复）----
+  const [dateFilter, setDateFilter] = useState<SpuDateFilterValue>(initialFilter)
 
   // ---- SPU表格内筛选状态 ----
   const [filterShops, setFilterShops] = useState<string[]>([])
@@ -52,15 +48,17 @@ export function SpuDetailPage({ onHeaderSlotChange }: SpuDetailPageProps) {
   const [selectedSpu, setSelectedSpu] = useState<SpuSummary | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // ---- 当日期筛选变化时，通知父组件更新 Header 插槽 ----
+  // ---- 当日期筛选变化时，通知父组件更新 Header 插槽并持久化----
   const handleDateFilterChange = useCallback((v: SpuDateFilterValue) => {
     setDateFilter(v)
+    // 持久化到 store（会保存到 localStorage）
+    setSpuDateFilter(v)
     if (onHeaderSlotChange) {
       onHeaderSlotChange(
         <SpuDateFilter value={v} onChange={handleDateFilterChange} />
       )
     }
-  }, [onHeaderSlotChange])
+  }, [onHeaderSlotChange, setSpuDateFilter])
 
   // 初次挂载时暴露插槽
   React.useEffect(() => {

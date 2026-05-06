@@ -500,12 +500,20 @@ async def get_spu_list(
 
         # 获取广告数据
         for spu in spus:
-            cursor.execute("""
-                SELECT COALESCE(SUM(ad_spend), 0) as total_ad_spend
-                FROM ad_data
-                WHERE spu = ? AND shop = ?
-                AND (? IS NULL OR date >= ?) AND (? IS NULL OR date <= ?)
-            """, (spu['spu'], spu['shop'], start_date, start_date, end_date, end_date))
+            # 正确处理日期条件：只有当日期范围有效时才添加条件
+            if start_date and end_date:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(ad_spend), 0) as total_ad_spend
+                    FROM ad_data
+                    WHERE spu = ? AND shop = ?
+                    AND date >= ? AND date <= ?
+                """, (spu['spu'], spu['shop'], start_date, end_date))
+            else:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(ad_spend), 0) as total_ad_spend
+                    FROM ad_data
+                    WHERE spu = ? AND shop = ?
+                """, (spu['spu'], spu['shop']))
             row = cursor.fetchone()
             spu['total_ad_spend'] = row['total_ad_spend'] if row else 0
 
