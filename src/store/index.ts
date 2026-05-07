@@ -326,11 +326,11 @@ export const useSystemStore = create<SystemSettingsStore>((set) => ({
           refundRate: info.refundRate ?? info.refund_rate ?? 0,
         }))
 
-      // 如果后端返回空，使用 IndexedDB 缓存（避免空数据覆盖已有数据）
-      const finalShopRates = convertedShopRates.length > 0 ? convertedShopRates : cachedShopRates
-      const finalSkuBaseInfo = skuBaseInfoRaw.length > 0 ? skuBaseInfoRaw : cachedSkuBaseInfo
-      const finalSkuFreights = backendSkuFreights.length > 0 ? backendSkuFreights : cachedSkuFreights
-      const finalSkuRefundRates = backendSkuRefundRates.length > 0 ? backendSkuRefundRates : cachedSkuRefundRates
+      // 选择数据更多的来源（上传失败时本地数据可能多于后端）
+      const finalShopRates = convertedShopRates.length > cachedShopRates.length ? convertedShopRates : cachedShopRates
+      const finalSkuBaseInfo = skuBaseInfoRaw.length > cachedSkuBaseInfo.length ? skuBaseInfoRaw : cachedSkuBaseInfo
+      const finalSkuFreights = backendSkuFreights.length > cachedSkuFreights.length ? backendSkuFreights : cachedSkuFreights
+      const finalSkuRefundRates = backendSkuRefundRates.length > cachedSkuRefundRates.length ? backendSkuRefundRates : cachedSkuRefundRates
 
       set({
         shopRates: finalShopRates,
@@ -414,9 +414,10 @@ export const useDataStore = create<DataStore>((set) => ({
       ])
       console.log('[DataStore] Loaded from backend:', backendOrders.length, 'orders,', backendAdData.length, 'ad data')
       
-      // 如果后端返回空，回退到 IndexedDB 数据（避免空数据覆盖）
-      const finalOrders = backendOrders.length > 0 ? backendOrders : cachedOrders
-      const finalAdData = backendAdData.length > 0 ? backendAdData : cachedAdData
+      // 选择数据更多的来源（如果上传失败，本地数据可能多于后端）
+      const finalOrders = backendOrders.length > cachedOrders.length ? backendOrders : cachedOrders
+      const finalAdData = backendAdData.length > cachedAdData.length ? backendAdData : cachedAdData
+      console.log('[DataStore] Final:', finalOrders.length, 'orders,', finalAdData.length, 'ad data')
       set({ orders: finalOrders, adData: finalAdData, isLoading: false })
     } catch (e) {
       console.warn('[DataStore] Failed to load from backend, falling back to IndexedDB:', e)

@@ -214,6 +214,7 @@ const parseOrdersFromExcel = (rows: any[]): Order[] => {
         console.log('【后端导入结果】', result)
       } catch (apiError) {
         console.warn('【后端上传失败，但本地数据已保存】', apiError)
+        alert('⚠️ 后端上传失败，数据仅保存在本地浏览器，刷新后会丢失！\n\n错误: ' + (apiError as Error).message)
       }
 
       // 3. 更新本地 store
@@ -247,6 +248,7 @@ const parseOrdersFromExcel = (rows: any[]): Order[] => {
         console.log('【后端导入结果】', result)
       } catch (apiError) {
         console.warn('【后端上传失败，但本地数据已保存】', apiError)
+        alert('⚠️ 后端上传失败，数据仅保存在本地浏览器，刷新后会丢失！\n\n错误: ' + (apiError as Error).message)
       }
 
       // 3. 更新本地 store
