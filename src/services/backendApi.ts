@@ -26,8 +26,8 @@ const getBaseUrl = () => {
   if (window.location.hostname === 'localhost') {
     return 'http://localhost:8000'
   }
-  // 生产环境兜底（Vercel 部署时的默认后端地址）
-  return 'https://hulalahome-data-platform-production-b09f.up.railway.app'
+  // 阿里云服务器部署：后端在容器中运行在 8000 端口
+  return 'http://8.136.191.90:8000'
 }
 
 const getHeaders = () => ({
@@ -502,4 +502,12 @@ export async function getAllTargets(): Promise<AllTargets> {
     operatorGroupTargets: [],
     operatorTargets: []
   }
+}
+
+// ============================================
+// 数据清空
+// ============================================
+export async function clearAllData(): Promise<{ message: string }> {
+  const res = await apiDelete<{ success: boolean; message: string }>('/api/data/clear-all')
+  return res
 }

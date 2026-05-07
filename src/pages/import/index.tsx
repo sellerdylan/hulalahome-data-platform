@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Order, AdData } from '@/types'
-import { importOrdersFile, importAdsFile } from '@/services/backendApi'
+import { importOrdersFile, importAdsFile, clearAllData } from '@/services/backendApi'
 
 interface ImportPageProps {
   orders: Order[]
@@ -265,11 +265,13 @@ const parseOrdersFromExcel = (rows: any[]): Order[] => {
   const handleClearOrders = () => {
     saveToStorage(STORAGE_KEYS.orders, [])
     onClearOrders?.()
+    clearAllData().catch(() => {})
   }
 
   const handleClearAdData = () => {
     saveToStorage(STORAGE_KEYS.adData, [])
     onClearAdData?.()
+    clearAllData().catch(() => {})
   }
 
   const getStatusBadge = (status: 'idle' | 'success' | 'error') => {

@@ -1050,6 +1050,20 @@ async def get_stats_overview(start_date: Optional[str] = None, end_date: Optiona
         }
 
 
+# ==================== 数据清空接口 ====================
+
+@app.delete("/api/data/clear-all")
+async def clear_all_data():
+    """清空所有数据（用于数据重导）"""
+    tables = ['orders', 'ad_data', 'sku_base_info', 'warehouse_freight',
+              'department_targets', 'operator_group_targets', 'operator_targets']
+    with get_db() as conn:
+        cursor = conn.cursor()
+        for table in tables:
+            cursor.execute(f"DELETE FROM {table}")
+        return {"success": True, "message": "所有数据已清空"}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))

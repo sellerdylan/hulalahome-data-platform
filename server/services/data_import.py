@@ -161,13 +161,20 @@ class DataImporter:
                                    'product_level', 'operator', 'operator_group', 'refund_rate',
                                    'cg_freight', 'pl_freight', 'fedex_freight']
                         sql = self._get_upsert_sql('sku_base_info', columns, ['shop', 'sku'])
+
+                        # 处理销售等级：CHECK 约束只允许 S/A/B/C 四个值
+                        # 无效值设为 None（SQLite 中 CHECK(NULL) 通过）避免插入失败
+                        sales_grade_raw = str(get_col(row, '销售等级', 'sales_grade', 'salesGrade', 'SalesGrade') or '')
+                        valid_grades = {'S', 'A', 'B', 'C'}
+                        sales_grade_val = sales_grade_raw if sales_grade_raw in valid_grades else None
+
                         cursor.execute(sql, (
                             shop_val,
                             sku_val,
                             str(get_col(row, 'ASIN', 'asin', 'Asin') or ''),
                             spu_val,
                             str(get_col(row, '生命周期', 'lifecycle', 'Lifecycle') or ''),
-                            str(get_col(row, '销售等级', 'sales_grade', 'salesGrade', 'SalesGrade') or ''),
+                            sales_grade_val,
                             str(get_col(row, '品类', 'category', 'Category') or ''),
                             str(get_col(row, '产品定级', 'product_level', 'productLevel', 'ProductLevel') or ''),
                             str(get_col(row, '运营', 'operator', 'Operator') or ''),
