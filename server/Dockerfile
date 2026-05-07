@@ -2,6 +2,10 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+# 换阿里云 Debian 源，避免海外源超时
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+
 # 安装编译依赖（pandas/numpy/psycopg2 可能需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
