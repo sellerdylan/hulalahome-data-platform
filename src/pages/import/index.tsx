@@ -71,7 +71,9 @@ export function ImportPage({
         try {
           const data = e.target?.result
           // cellDates: true 让 xlsx 自动将 Excel 日期转换为 JS Date 对象
-          const workbook = XLSX.read(data, { type: 'array', cellDates: true })
+          // cellDates: false 避免 xlsx 将日期序列号转 Date 对象时产生时区偏移
+          // 详见：excelSerialToDate 使用纯 UTC 计算
+          const workbook = XLSX.read(data, { type: 'array', cellDates: false })
           const sheetName = workbook.SheetNames[0]
           const worksheet = workbook.Sheets[sheetName]
           const jsonData = XLSX.utils.sheet_to_json(worksheet)
@@ -89,9 +91,13 @@ export function ImportPage({
 const normalizeDate = (value: any): string => {
   if (!value) return ''
   
-  // 如果是 JS Date 对象（xlsx 用 cellDates: true 时会返回 Date）
+  // 如果是 JS Date 对象（cellDates: true 时 xlsx 会返回 Date）
+  // 使用本地时间 getter 避免 toISOString() 的 UTC 时区偏移问题
   if (value instanceof Date) {
-    return value.toISOString().split('T')[0]
+    const y = value.getFullYear()
+    const m = String(value.getMonth() + 1).padStart(2, '0')
+    const d = String(value.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
   
   // 如果是字符串
@@ -118,13 +124,16 @@ const normalizeDate = (value: any): string => {
 }
 
 // Excel 日期序列号转 YYYY-MM-DD
-// 注意：不做闰年修正，因为 Excel 的序列号本身已经包含了 1900 闰年错误
+// 使用纯 UTC 计算避免本地时区偏移（1899年时区偏移与现在不同）
 // 46113 -> 2026-04-01, 46114 -> 2026-04-02, ...
 const excelSerialToDate = (serial: number): string => {
-  const msPerDay = 24 * 60 * 60 * 1000
-  const excelEpoch = new Date(1899, 11, 31).getTime()
-  const d = new Date(excelEpoch + serial * msPerDay)
-  return d.toISOString().split('T')[0]
+  // Date.UTC(1899, 11, 30) = Excel 序列号 0 的 UTC 基准
+  // 序列号 1 = 1899-12-31 UTC（Excel 的 1900-01-01，因 Lotus 1-2-3 闰年 bug 有 1 天偏移）
+  const utcDate = new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
+  const y = utcDate.getUTCFullYear()
+  const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(utcDate.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 // 解析订单数据

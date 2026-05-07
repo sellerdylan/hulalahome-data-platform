@@ -20,7 +20,9 @@ import type {
 // ==================== API 基础配置 ====================
 
 const getBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const env = import.meta.env.VITE_API_URL
+  if (env !== undefined) return env
+  return 'http://localhost:8000'
 }
 
 const getHeaders = () => ({

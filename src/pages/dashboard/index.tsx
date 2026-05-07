@@ -3,11 +3,25 @@ import { DollarSign, TrendingUp, Percent, MousePointerClick } from 'lucide-react
 import { KPICard, DualKPICard } from '@/components/data/KPICard'
 import { LineChart, MultiLineChart, BarChart, PieChart } from '@/components/charts'
 import { formatCurrency, toDateString, cn } from '@/lib/utils'
-import { useDataStore, useSystemStore, useTargetStore } from '@/store'
+import { useDataStore, useSystemStore, useTargetStore, useFilterStore } from '@/store'
 import { WAREHOUSE_FREIGHT_TYPE } from '@/types'
 import type { Order, AdData, ShopRate, SkuFreight, SkuRefundRate, SkuBaseInfo, DailyShopSummary } from '@/types'
-import { DashboardFilter } from '@/components/filters/DashboardFilter'
+import { SpuDateFilter, type SpuDateFilterValue } from '@/components/filters/SpuDateFilter'
 import dayjs from 'dayjs'
+
+// 判断日期是否在筛选范围内（兼容月份和日期范围两种模式）
+function dateMatchesFilter(dateStr: string, filter: SpuDateFilterValue): boolean {
+  if (filter.mode === 'months') {
+    if (filter.selectedMonths.length === 0) return true
+    return filter.selectedMonths.some(m => dateStr.startsWith(m))
+  } else {
+    // mode === 'range'
+    if (!filter.startDate && !filter.endDate) return true
+    if (filter.startDate && dateStr < filter.startDate) return false
+    if (filter.endDate && dateStr > filter.endDate) return false
+    return true
+  }
+}
 
 // 预创建查找Map
 function createLookupMaps(
@@ -42,9 +56,10 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
   const { orders, adData } = useDataStore()
   const { shopRates, skuFreights, skuRefundRates, skuBaseInfo } = useSystemStore()
   const { departmentTargets } = useTargetStore()
+  const { spuDateFilter: initialFilter, setSpuDateFilter } = useFilterStore()
 
-  // ========== 筛选状态（自管理）==========
-  const [filterMonths, setFilterMonths] = useState<string[]>([dayjs().format('YYYY-MM')])
+  // ========== 筛选状态 ==========
+  const [dateFilter, setDateFilter] = useState<SpuDateFilterValue>(initialFilter)
   const [filterShops, setFilterShops] = useState<string[]>([])
   const [filterGroups, setFilterGroups] = useState<string[]>([])
   const [filterOperators, setFilterOperators] = useState<string[]>([])
@@ -58,27 +73,33 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
     return { shops }
   }, [orders, skuBaseInfo])
 
-  // 暴露插槽到 Header
-  const handleFilterChange = useCallback((months: string[], shops: string[]) => {
-    setFilterMonths(months)
+  // 日期筛选变化时更新 Header 插槽并持久化
+  const handleDateFilterChange = useCallback((v: SpuDateFilterValue) => {
+    setDateFilter(v)
+    setSpuDateFilter(v)
+    if (onHeaderSlotChange) {
+      onHeaderSlotChange(
+        <SpuDateFilter value={v} onChange={handleDateFilterChange} />
+      )
+    }
+  }, [onHeaderSlotChange, setSpuDateFilter])
+
+  // 店铺筛选变化
+  const handleShopsChange = useCallback((shops: string[]) => {
     setFilterShops(shops)
     if (onHeaderSlotChange) {
       onHeaderSlotChange(
-        <DashboardFilter
-          shops={filterOptions.shops}
-          filterMonths={months}
-          filterShops={shops}
-          onMonthsChange={v => handleFilterChange(v, shops)}
-          onShopsChange={v => handleFilterChange(months, v)}
-        />
+        <SpuDateFilter value={dateFilter} onChange={handleDateFilterChange} />
       )
     }
-  }, [onHeaderSlotChange, filterOptions])
+  }, [onHeaderSlotChange, dateFilter, handleDateFilterChange])
 
   // 初始化时暴露插槽
   useEffect(() => {
     if (onHeaderSlotChange) {
-      handleFilterChange(filterMonths, filterShops)
+      onHeaderSlotChange(
+        <SpuDateFilter value={dateFilter} onChange={handleDateFilterChange} />
+      )
     }
     return () => {
       if (onHeaderSlotChange) onHeaderSlotChange(null)
@@ -97,8 +118,8 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
       const dateStr = toDateString(o.date)
-      // 月份筛选：日期前缀匹配任一选中月份
-      if (filterMonths.length > 0 && !filterMonths.some(m => dateStr.startsWith(m))) return false
+      // 日期筛选：支持月份多选和自定义范围
+      if (!dateMatchesFilter(dateStr, dateFilter)) return false
       // 店铺筛选
       if (filterShops.length > 0 && !filterShops.includes(o.shop)) return false
       // 运营组/运营筛选：从 SKU 基础信息查
@@ -107,16 +128,16 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
       if (filterOperators.length > 0 && skuInfo && !filterOperators.includes(skuInfo.operator)) return false
       return true
     })
-  }, [orders, filterMonths, filterShops, filterGroups, filterOperators, skuBaseInfoMap])
+  }, [orders, dateFilter, filterShops, filterGroups, filterOperators, skuBaseInfoMap])
 
   const filteredAdData = useMemo(() => {
     return adData.filter(a => {
       const dateStr = toDateString(a.date)
-      if (filterMonths.length > 0 && !filterMonths.some(m => dateStr.startsWith(m))) return false
+      if (!dateMatchesFilter(dateStr, dateFilter)) return false
       if (filterShops.length > 0 && !filterShops.includes(a.shop)) return false
       return true
     })
-  }, [adData, filterMonths, filterShops])
+  }, [adData, dateFilter, filterShops])
 
   // ========== 步骤1：按 每日+店铺+SPU 汇总订单 ==========
   const orderByDateShopSpu = useMemo(() => {
@@ -388,7 +409,9 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
   }, [dailyShopSpuData])
 
   // ========== 本月目标查找 ==========
-  const currentMonth = filterMonths[0] || dayjs().format('YYYY-MM')
+  const currentMonth = dateFilter.mode === 'months'
+    ? (dateFilter.selectedMonths[0] || dayjs().format('YYYY-MM'))
+    : dayjs().format('YYYY-MM')
   const monthTarget = departmentTargets.find(t => t.month === currentMonth)
   const targetSales = monthTarget?.targetSales || 0
   const targetGrossProfit = monthTarget?.targetGrossProfit || 0
@@ -427,13 +450,13 @@ export function DashboardPage({ onHeaderSlotChange }: DashboardPageProps) {
     console.group('=== Dashboard 数据诊断 ===')
     console.log('原始订单数:', orders.length)
     console.log('筛选后订单数:', filteredOrders.length)
-    console.log('月份筛选:', filterMonths)
+    console.log('日期筛选:', dateFilter)
     console.log('总销售额:', totalSales)
     console.log('总成本:', totalCost)
     console.log('总佣金:', totalCommission)
     console.log('日期范围:', [...new Set(filteredOrders.map(o => toDateString(o.date)))])
     console.groupEnd()
-  }, [orders, filteredOrders, filterMonths, totalSales, totalCost, totalCommission])
+  }, [orders, filteredOrders, dateFilter, totalSales, totalCost, totalCommission])
 
   // ========== 早期返回 ==========
   if (dailyShopSpuData.length === 0 && orders.length === 0) {
