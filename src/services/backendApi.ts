@@ -22,12 +22,13 @@ const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL
   }
-  // 本地开发环境
-  if (window.location.hostname === 'localhost') {
+  // 本地开发环境：直接连后端
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:8000'
   }
-  // 阿里云服务器部署：后端在容器中运行在 8000 端口
-  return 'http://8.136.191.90:8000'
+  // 生产环境：通过 Nginx 反向代理（同域，无需 CORS）
+  // Nginx 已将 /api/ 请求代理到 backend:8000
+  return ''
 }
 
 const getHeaders = () => ({
